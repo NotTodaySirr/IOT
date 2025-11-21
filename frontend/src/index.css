@@ -1,0 +1,49 @@
+@import "tailwindcss";
+
+@theme {
+  /* Vintage Hardware Palette */
+  --color-vintage-beige: #F5EADD;
+  /* Soft Parchment */
+  --color-vintage-coffee: #795548;
+  /* Text & Borders */
+  --color-vintage-cream: #FAF3E0;
+  /* Component Tops */
+  --color-vintage-tan: #D2B48C;
+  /* Component Slab */
+  --color-vintage-vfd-bg: #322b26;
+  /* VFD Background */
+  --color-vintage-vfd-text: #e6ffb1;
+  /* VFD Text */
+
+  --font-mono: "IBM Plex Mono", monospace;
+
+  --shadow-hard: 4px 4px 0px 0px rgba(0, 0, 0, 0.2);
+  --shadow-inset: inset 2px 2px 4px 0px rgba(0, 0, 0, 0.3);
+}
+
+@layer base {
+  body {
+    @apply bg-vintage-beige text-vintage-coffee font-mono;
+  }
+}
+
+@layer components {
+  .vintage-panel {
+    @apply bg-vintage-cream border-2 border-vintage-coffee p-4 rounded-sm;
+    box-shadow: 4px 4px 0px 0px var(--color-vintage-tan);
+  }
+
+  .vintage-btn {
+    @apply px-4 py-2 bg-vintage-cream border-2 border-vintage-coffee font-bold uppercase text-sm transition-all relative;
+    /* 3D Slab Effect */
+    box-shadow: 0px 4px 0px 0px var(--color-vintage-tan),
+      0px 4px 4px 0px rgba(0, 0, 0, 0.2);
+    transform: translateY(0);
+  }
+
+  .vintage-btn:active {
+    transform: translateY(4px);
+    box-shadow: 0px 0px 0px 0px var(--color-vintage-tan),
+      inset 0px 2px 4px 0px rgba(0, 0, 0, 0.1);
+  }
+}
