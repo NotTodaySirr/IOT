@@ -1,21 +1,21 @@
 import React from 'react';
 import LCDDisplay from '../components/LCDDisplay';
 import ActuatorButton from '../components/ActuatorButton';
+import VintagePanel from '../components/ui/VintagePanel';
+import ScreenOverlay from '../components/ui/ScreenOverlay';
 
 const Dashboard = ({ sensors, actuators, toggleActuator, aiStatus }) => {
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {/* Sensor Panel */}
-            <div className="vintage-panel">
-                <h2 className="text-xl font-bold mb-4 border-b-2 border-vintage-coffee pb-2 text-vintage-coffee">SENSOR READINGS</h2>
+            <VintagePanel title="SENSOR READINGS">
                 <LCDDisplay label="TEMPERATURE" value={sensors.temp} unit="°C" warning={sensors.temp > 30} />
                 <LCDDisplay label="HUMIDITY" value={sensors.humidity} unit="%" />
                 <LCDDisplay label="CO LEVEL" value={sensors.co} unit="PPM" warning={sensors.co > 50} />
-            </div>
+            </VintagePanel>
 
             {/* Control Panel */}
-            <div className="vintage-panel">
-                <h2 className="text-xl font-bold mb-4 border-b-2 border-vintage-coffee pb-2 text-vintage-coffee">MANUAL OVERRIDE</h2>
+            <VintagePanel title="MANUAL OVERRIDE">
                 <div className="space-y-4">
                     <ActuatorButton
                         label="VENTILATION FAN"
@@ -46,10 +46,9 @@ const Dashboard = ({ sensors, actuators, toggleActuator, aiStatus }) => {
                             <span className="text-xs text-vintage-tan opacity-80">{aiStatus.detail}</span>
                         </div>
                     </div>
-                    {/* Grid Overlay */}
-                    <div className="absolute inset-0 pointer-events-none bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.1)_50%),linear-gradient(90deg,rgba(255,255,255,0.03),rgba(255,255,255,0.03))] z-0 bg-[length:100%_4px,4px_100%]"></div>
+                    <ScreenOverlay />
                 </div>
-            </div>
+            </VintagePanel>
         </div>
     );
 };

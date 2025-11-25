@@ -11,6 +11,8 @@ import {
     TimeScale,
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
+import VintagePanel from '../components/ui/VintagePanel';
+import VintageTable from '../components/features/VintageTable';
 
 // Register Chart.js components
 ChartJS.register(
@@ -87,49 +89,35 @@ const Archives = ({ history = [] }) => {
         }
     };
 
+    const columns = ['TIMESTAMP', 'TEMP', 'HUMID', 'CO', 'STATUS'];
+
+    const renderRow = (entry, idx) => (
+        <tr key={idx} className="even:bg-vintage-coffee/5 hover:bg-vintage-coffee/10 transition-colors">
+            <td className="p-2 border-b border-vintage-coffee/20 font-mono">{entry.time}</td>
+            <td className="p-2 border-b border-vintage-coffee/20 font-mono">{entry.temp}°C</td>
+            <td className="p-2 border-b border-vintage-coffee/20 font-mono">{entry.humidity}%</td>
+            <td className={`p-2 border-b border-vintage-coffee/20 font-mono font-bold ${entry.co > 50 ? 'text-red-600 animate-pulse' : ''}`}>{entry.co} PPM</td>
+            <td className={`p-2 border-b border-vintage-coffee/20 font-mono font-bold ${entry.status === 'DANGER' ? 'text-red-600' : entry.status === 'WARN' ? 'text-orange-600' : 'text-vintage-coffee'}`}>{entry.status}</td>
+        </tr>
+    );
+
     return (
         <div className="space-y-6 h-full flex flex-col">
             {/* Chart Section */}
-            <div className="vintage-panel flex-1 min-h-[300px] flex flex-col">
-                <h3 className="text-lg font-bold mb-2 border-b-2 border-vintage-coffee pb-1 text-vintage-coffee">ENVIRONMENTAL TRENDS</h3>
+            <VintagePanel title="ENVIRONMENTAL TRENDS" className="flex-1 min-h-[300px] flex flex-col">
                 <div className="flex-1 relative w-full h-full min-h-0">
                     <Line data={chartData} options={chartOptions} />
                 </div>
-            </div>
+            </VintagePanel>
 
             {/* Log Table Section */}
-            <div className="vintage-panel flex-1 min-h-[250px] flex flex-col">
-                <h3 className="text-lg font-bold mb-4 border-b-2 border-vintage-coffee pb-1 text-vintage-coffee">DATA LOG (CLOUD SYNC)</h3>
-                <div className="overflow-y-auto flex-1 custom-scrollbar pr-2">
-                    <table className="w-full text-sm text-left border-collapse">
-                        <thead className="sticky top-0 bg-vintage-tan z-10">
-                            <tr>
-                                <th className="border-b-2 border-vintage-coffee p-2">TIMESTAMP</th>
-                                <th className="border-b-2 border-vintage-coffee p-2">TEMP</th>
-                                <th className="border-b-2 border-vintage-coffee p-2">HUMID</th>
-                                <th className="border-b-2 border-vintage-coffee p-2">CO</th>
-                                <th className="border-b-2 border-vintage-coffee p-2">STATUS</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {[...history].reverse().map((entry, idx) => (
-                                <tr key={idx} className="even:bg-vintage-coffee/5 hover:bg-vintage-coffee/10 transition-colors">
-                                    <td className="p-2 border-b border-vintage-coffee/20 font-mono">{entry.time}</td>
-                                    <td className="p-2 border-b border-vintage-coffee/20 font-mono">{entry.temp}°C</td>
-                                    <td className="p-2 border-b border-vintage-coffee/20 font-mono">{entry.humidity}%</td>
-                                    <td className={`p-2 border-b border-vintage-coffee/20 font-mono font-bold ${entry.co > 50 ? 'text-red-600 animate-pulse' : ''}`}>{entry.co} PPM</td>
-                                    <td className={`p-2 border-b border-vintage-coffee/20 font-mono font-bold ${entry.status === 'DANGER' ? 'text-red-600' : entry.status === 'WARN' ? 'text-orange-600' : 'text-vintage-coffee'}`}>{entry.status}</td>
-                                </tr>
-                            ))}
-                            {history.length === 0 && (
-                                <tr>
-                                    <td colSpan="5" className="p-4 text-center opacity-50 italic">NO DATA LOGGED YET...</td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+            <VintagePanel title="DATA LOG (CLOUD SYNC)" className="flex-1 min-h-[250px] flex flex-col">
+                <VintageTable
+                    columns={columns}
+                    data={[...history].reverse()}
+                    renderRow={renderRow}
+                />
+            </VintagePanel>
         </div>
     );
 };
