@@ -1,23 +1,25 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import useAuth from '../hooks/useAuth';
 import VintagePanel from '../components/ui/VintagePanel';
 import VintageInput from '../components/ui/VintageInput';
 import VintageButton from '../components/ui/VintageButton';
+import VintageAlert from '../components/ui/VintageAlert';
 
 const Login = ({ onLogin }) => {
-    const [username, setUsername] = useState('');
+    const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [error, setError] = useState('');
     const navigate = useNavigate();
+    const { signIn, loading, error } = useAuth();
 
-    const handleLogin = (e) => {
+    const handleLogin = async (e) => {
         e.preventDefault();
-        // Mock authentication logic
-        if (username && password) {
+
+        const { success } = await signIn(email, password);
+
+        if (success) {
             onLogin();
             navigate('/dashboard');
-        } else {
-            setError('ERR: INVALID_CREDENTIALS');
         }
     };
 
@@ -45,18 +47,15 @@ const Login = ({ onLogin }) => {
                         <div className="h-0.5 bg-vintage-coffee w-3/4 mx-auto opacity-20"></div>
                     </div>
 
-                    {error && (
-                        <div className="mb-6 bg-vintage-red text-vintage-beige border-2 border-vintage-coffee p-2 text-center animate-pulse font-bold shadow-sm">
-                            {error}
-                        </div>
-                    )}
+                    <VintageAlert message={error} type="error" />
 
                     <form onSubmit={handleLogin} className="space-y-6">
                         <VintageInput
-                            label="Username"
-                            value={username}
-                            onChange={(e) => setUsername(e.target.value)}
-                            placeholder="ENTER ID..."
+                            label="Email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            placeholder="ENTER EMAIL..."
+                            disabled={loading}
                         />
 
                         <VintageInput
@@ -65,11 +64,12 @@ const Login = ({ onLogin }) => {
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             placeholder="••••••••"
+                            disabled={loading}
                         />
 
                         <div className="pt-4 flex justify-center">
-                            <VintageButton type="submit" variant="primary">
-                                Authenticate
+                            <VintageButton type="submit" variant="primary" disabled={loading}>
+                                {loading ? 'AUTHENTICATING...' : 'Authenticate'}
                             </VintageButton>
                         </div>
                     </form>
