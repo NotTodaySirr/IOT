@@ -40,14 +40,16 @@ const useAuth = () => {
      * Sign up a new user
      * @param {string} email - User's email
      * @param {string} password - User's password
+     * @param {object} metadata - Optional user metadata (e.g., { name, phone })
      * @returns {Promise<{success: boolean, data: object}>}
      */
-    const signUp = async (email, password) => {
+    const signUp = async (email, password, metadata = {}) => {
         setLoading(true);
         setError(null);
 
         try {
-            const { data, error } = await authService.signUp(email, password);
+            const options = Object.keys(metadata).length > 0 ? { data: metadata } : {};
+            const { data, error } = await authService.signUp(email, password, options);
 
             if (error) {
                 setError(error.message);

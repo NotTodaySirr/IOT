@@ -29,13 +29,15 @@ const authService = {
      * Sign up a new user
      * @param {string} email - User's email
      * @param {string} password - User's password
+     * @param {object} options - Optional metadata (e.g., { data: { name, phone } })
      * @returns {Promise<{data: object, error: object}>}
      */
-    async signUp(email, password) {
+    async signUp(email, password, options = {}) {
         try {
             const { data, error } = await supabase.auth.signUp({
                 email,
                 password,
+                options,
             });
 
             if (error) throw error;

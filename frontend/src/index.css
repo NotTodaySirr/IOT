@@ -14,6 +14,10 @@
   /* VFD Background */
   --color-vintage-vfd-text: #e6ffb1;
   /* VFD Text */
+  --color-vintage-red: #D32F2F;
+  /* Error/Alert Red */
+  --color-vintage-green: #388E3C;
+  /* Success Green */
 
   --font-mono: "IBM Plex Mono", monospace;
 
@@ -45,5 +49,23 @@
     transform: translateY(4px);
     box-shadow: 0px 0px 0px 0px var(--color-vintage-tan),
       inset 0px 2px 4px 0px rgba(0, 0, 0, 0.1);
+  }
+}
+
+@layer utilities {
+  @keyframes slide-in-right {
+    from {
+      transform: translateX(100%);
+      opacity: 0;
+    }
+
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+
+  .animate-slide-in-right {
+    animation: slide-in-right 0.3s ease-out;
   }
 }

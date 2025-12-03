@@ -4,6 +4,8 @@ import Dashboard from './views/Dashboard';
 import Archives from './views/Archives';
 import Terminal from './views/Terminal';
 import Login from './views/Login';
+import Register from './views/Register';
+import { ToastProvider } from './contexts/ToastContext';
 
 function App() {
   // Auth State
@@ -147,34 +149,37 @@ function App() {
   };
 
   return (
-    <Routes>
-      <Route path="/login" element={<Login onLogin={handleLogin} />} />
+    <ToastProvider>
+      <Routes>
+        <Route path="/login" element={<Login onLogin={handleLogin} />} />
+        <Route path="/register" element={<Register />} />
 
-      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
-      <Route path="/dashboard" element={
-        <ProtectedLayout>
-          <Dashboard
-            sensors={sensors}
-            actuators={actuators}
-            toggleActuator={toggleActuator}
-            aiStatus={aiStatus}
-          />
-        </ProtectedLayout>
-      } />
+        <Route path="/dashboard" element={
+          <ProtectedLayout>
+            <Dashboard
+              sensors={sensors}
+              actuators={actuators}
+              toggleActuator={toggleActuator}
+              aiStatus={aiStatus}
+            />
+          </ProtectedLayout>
+        } />
 
-      <Route path="/archives" element={
-        <ProtectedLayout>
-          <Archives history={history} />
-        </ProtectedLayout>
-      } />
+        <Route path="/archives" element={
+          <ProtectedLayout>
+            <Archives history={history} />
+          </ProtectedLayout>
+        } />
 
-      <Route path="/terminal" element={
-        <ProtectedLayout>
-          <Terminal />
-        </ProtectedLayout>
-      } />
-    </Routes>
+        <Route path="/terminal" element={
+          <ProtectedLayout>
+            <Terminal />
+          </ProtectedLayout>
+        } />
+      </Routes>
+    </ToastProvider>
   );
 }
 
