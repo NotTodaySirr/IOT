@@ -3,11 +3,13 @@ API Routes for the ECS Backend.
 Provides endpoints for sensor data retrieval and device control.
 """
 
-from flask import jsonify, request
+from flask import jsonify, request, Response, stream_with_context
 from api import sensor_bp
 from models import get_db, SensorData
 from mqtt.client import get_mqtt_handler
 from api.middleware import require_auth
+import json
+import time
 
 
 @sensor_bp.route('/health', methods=['GET'])
@@ -20,6 +22,34 @@ def health_check():
     }), 200
 
 
+@sensor_bp.route('/stream', methods=['GET'])
+def stream_readings():
+    """
+    Server-Sent Events (SSE) endpoint for real-time sensor updates.
+    Yields data immediately when available from MQTT handler.
+    """
+    mqtt_handler = get_mqtt_handler()
+    
+    def generate():
+        while True:
+            # Wait for new data event (blocking, efficient)
+            mqtt_handler.new_data_event.wait()
+            
+            # Get the data
+            if mqtt_handler.latest_reading:
+                data = json.dumps(mqtt_handler.latest_reading)
+                yield f"data: {data}\n\n"
+            
+            # Small sleep to prevent tight loop if event is set repeatedly fast
+            try:
+                # time.sleep(0.1) # Optional if needed
+                pass
+            except GeneratorExit:
+                break
+                
+    return Response(stream_with_context(generate()), mimetype='text/event-stream')
+
+
 @sensor_bp.route('/history', methods=['GET'])
 @require_auth
 def get_history():
@@ -27,31 +57,60 @@ def get_history():
     Retrieve historical sensor data.
     
     Query Parameters:
-        limit (int): Maximum number of records to retrieve (default: 100)
-    
-    Returns:
-        JSON array of sensor data records
+        page (int): Page number for pagination
+        per_page (int): Items per page (default: 20)
+        limit (int): Max records (if no page provided)
+        start (iso_str): Start date
+        end (iso_str): End date
     """
     db = None
     try:
+        page = request.args.get('page', type=int)
+        per_page = request.args.get('per_page', 20, type=int)
         limit = request.args.get('limit', 100, type=int)
         
-        # Validate limit
-        if limit < 1 or limit > 1000:
-            return jsonify({'error': 'Limit must be between 1 and 1000'}), 400
+        start = request.args.get('start')
+        end = request.args.get('end')
         
-        # Query database using SQLAlchemy
         db = get_db()
-        sensor_data = db.query(SensorData).order_by(SensorData.recorded_at.desc()).limit(limit).all()
+        query = db.query(SensorData)
         
-        # Convert to dictionaries
-        data = [record.to_dict() for record in sensor_data]
+        # Apply Date Filtering
+        if start:
+            query = query.filter(SensorData.recorded_at >= start)
+        if end:
+            query = query.filter(SensorData.recorded_at <= end)
+            
+        # Order by newest first
+        query = query.order_by(SensorData.recorded_at.desc())
         
-        return jsonify({
-            'success': True,
-            'count': len(data),
-            'data': data
-        }), 200
+        response_data = {}
+        
+        if page:
+            # PAGINATION MODE (For Tables)
+            pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+            data = [record.to_dict() for record in pagination.items]
+            response_data = {
+                'success': True,
+                'data': data,
+                'pagination': {
+                    'page': page,
+                    'per_page': per_page,
+                    'total': pagination.total,
+                    'pages': pagination.pages
+                }
+            }
+        else:
+            # LIMIT MODE (For Charts)
+            sensor_data = query.limit(limit).all()
+            data = [record.to_dict() for record in sensor_data]
+            response_data = {
+                'success': True,
+                'count': len(data),
+                'data': data
+            }
+        
+        return jsonify(response_data), 200
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500

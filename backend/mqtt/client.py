@@ -4,6 +4,8 @@ Subscribes to sensor data uploads and publishes control commands.
 """
 
 import json
+import threading
+from datetime import datetime
 import paho.mqtt.client as mqtt
 from config import Config
 from models import get_db, SensorData
@@ -16,7 +18,13 @@ class MQTTHandler:
         self.client = mqtt.Client(client_id=Config.MQTT_CLIENT_ID)
         self.client.on_connect = self.on_connect
         self.client.on_message = self.on_message
+        self.client.on_message = self.on_message
         self.client.on_disconnect = self.on_disconnect
+        
+        # State for Throttling & Streaming
+        self.last_save_time = datetime.min # Force immediate first save
+        self.latest_reading = None # Store latest parsed data for valid streams
+        self.new_data_event = threading.Event() # Event to signal SSE threads
         
         # Set username and password if provided
         if Config.MQTT_USERNAME and Config.MQTT_PASSWORD:
@@ -59,14 +67,13 @@ class MQTTHandler:
     
     def handle_sensor_upload(self, payload: str):
         """
-        Process sensor data from ESP32 and save to database.
+        Process sensor data from ESP32.
         
-        Expected JSON format:
-        {
-            "temperature": 24.5,
-            "humidity": 60.0,
-            "co_level": 12.5
-        }
+        Strategy:
+        1. STREAM: Always broadcast to SSE listeners (for real-time dashboard).
+        2. STORE: Save to DB only if:
+           - CO level is hazardous (> 50 ppm) [High Frequency Logging]
+           - OR it has been > 60 seconds since last save [Normal Logging]
         """
         db = None
         try:
@@ -81,22 +88,53 @@ class MQTTHandler:
                 print("⚠️  Incomplete sensor data received")
                 return
             
+            # --- 1. PREPARE DATA ---
             # Determine if CO level is hazardous (threshold: 50 ppm)
             CO_THRESHOLD = 50.0
             is_hazardous = co_level > CO_THRESHOLD
             
-            # Save to database using SQLAlchemy
-            db = get_db()
-            sensor_reading = SensorData(
-                temperature=temperature,
-                humidity=humidity,
-                co_level=co_level,
-                is_hazardous=is_hazardous
-            )
-            db.add(sensor_reading)
-            db.commit()
+            current_time = datetime.now()
             
-            print(f"✓ Inserted sensor data: Temp={temperature}°C, Hum={humidity}%, CO={co_level}")
+            # Notify listeners (SSE) - Store latest data for streaming
+            self.latest_reading = {
+                'temperature': temperature,
+                'humidity': humidity,
+                'co_level': co_level,
+                'is_hazardous': is_hazardous,
+                'timestamp': current_time.isoformat()
+            }
+            self.new_data_event.set() # Wake up waiting threads
+            self.new_data_event.clear() # Reset for next event
+            
+            # --- 2. THRoTTLING LOGIC ---
+            should_save = False
+            
+            # Save if hazardous (High Frequency Mode)
+            if is_hazardous:
+                should_save = True
+                print(f"⚠️  HAZARD DETECTED (CO={co_level}) - Saving immediately")
+                
+            # OR Save if minute passed (Normal Mode)
+            elif (current_time - self.last_save_time).total_seconds() >= 60:
+                should_save = True
+                
+            # --- 3. DATABASE SAVE ---
+            if should_save:
+                db = get_db()
+                sensor_reading = SensorData(
+                    temperature=temperature,
+                    humidity=humidity,
+                    co_level=co_level,
+                    is_hazardous=is_hazardous
+                )
+                db.add(sensor_reading)
+                db.commit()
+                
+                self.last_save_time = current_time
+                print(f"✓ Saved to DB: Temp={temperature}, Hum={humidity}, CO={co_level}")
+            else:
+                # print(f"» Streamed only (Skipped DB)") # Optional: Comment out to reduce noise
+                pass
                 
         except json.JSONDecodeError as e:
             print(f"✗ Invalid JSON in sensor data: {e}")

@@ -13,7 +13,7 @@ class DeviceState(Base):
     __tablename__ = 'device_states'
     
     device_id = Column(String(50), primary_key=True)
-    user_id = Column(UUID(as_uuid=True), ForeignKey('auth.users.id'), primary_key=True)
+    user_id = Column(UUID(as_uuid=True), primary_key=True)
     is_active = Column(Boolean, default=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 

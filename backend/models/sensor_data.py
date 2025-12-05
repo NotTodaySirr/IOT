@@ -13,15 +13,12 @@ class SensorData(Base):
     __tablename__ = 'sensor_data'
     
     id = Column(BigInteger, primary_key=True, autoincrement=True)
-    user_id = Column(UUID(as_uuid=True), ForeignKey('auth.users.id'), nullable=True)
-    # Note: referencing auth.users directly in SQLAlchemy can be tricky if not in same schema search path.
-    # Usually we just store the UUID string/type without strict FK constraint in SQLAlchemy if cross-schema.
-    # But since we added FK in SQL, we can keep it here or just use UUID type.
+    user_id = Column(UUID(as_uuid=True), nullable=True)
     
     temperature = Column(DECIMAL(5, 2), nullable=False)
     humidity = Column(DECIMAL(5, 2), nullable=False)
     co_level = Column(Integer, nullable=False)
-    recorded_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    recorded_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False, index=True)
 
     def to_dict(self):
         """Convert model instance to dictionary."""
