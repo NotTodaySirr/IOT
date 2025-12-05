@@ -5,10 +5,12 @@ Provides endpoints for AI-based analysis and predictions.
 """
 
 from flask import jsonify, request
-from api import api_bp
+from api import ai_bp
 from services.ai_service import AIService
+from api.middleware import require_auth
 
-@api_bp.route('/ai/predict', methods=['POST'])
+@ai_bp.route('/predict', methods=['POST'])
+@require_auth
 def predict():
     """
     Generate a prediction using the AI service.

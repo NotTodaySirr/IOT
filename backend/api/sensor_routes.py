@@ -4,12 +4,13 @@ Provides endpoints for sensor data retrieval and device control.
 """
 
 from flask import jsonify, request
-from api import api_bp
+from api import sensor_bp
 from models import get_db, SensorData
 from mqtt.client import get_mqtt_handler
+from api.middleware import require_auth
 
 
-@api_bp.route('/health', methods=['GET'])
+@sensor_bp.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint."""
     return jsonify({
@@ -19,7 +20,8 @@ def health_check():
     }), 200
 
 
-@api_bp.route('/history', methods=['GET'])
+@sensor_bp.route('/history', methods=['GET'])
+@require_auth
 def get_history():
     """
     Retrieve historical sensor data.
@@ -58,7 +60,8 @@ def get_history():
             db.close()
 
 
-@api_bp.route('/control', methods=['POST'])
+@sensor_bp.route('/control', methods=['POST'])
+@require_auth
 def control_device():
     """
     Send control commands to ESP32 devices via MQTT.
@@ -109,7 +112,8 @@ def control_device():
         return jsonify({'error': str(e)}), 500
 
 
-@api_bp.route('/current', methods=['GET'])
+@sensor_bp.route('/current', methods=['GET'])
+@require_auth
 def get_current_readings():
     """
     Get the most recent sensor readings.

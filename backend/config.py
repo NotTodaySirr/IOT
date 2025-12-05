@@ -21,6 +21,10 @@ class Config:
     # Database Configuration
     DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/ecs_db')
     
+    # Supabase Configuration
+    SUPABASE_URL = os.getenv('SUPABASE_URL')
+    SUPABASE_KEY = os.getenv('SUPABASE_KEY')
+    
     # MQTT Configuration
     MQTT_BROKER = os.getenv('MQTT_BROKER', 'broker.hivemq.com')
     MQTT_PORT = int(os.getenv('MQTT_PORT', 1883))
@@ -40,4 +44,10 @@ class Config:
             print("⚠️  Warning: DATABASE_URL not set. Using default: postgresql://postgres:postgres@localhost:5432/ecs_db")
             print("   For production, set DATABASE_URL in your .env file.")
             return False
+            
+        if not os.getenv('SUPABASE_URL') or not os.getenv('SUPABASE_KEY'):
+            print("⚠️  Warning: SUPABASE_URL or SUPABASE_KEY not set.")
+            print("   Authentication will not work correctly.")
+            return False
+            
         return True

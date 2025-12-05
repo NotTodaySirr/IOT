@@ -1,77 +1,39 @@
 """
-SQLAlchemy database setup and session management.
+SQLAlchemy database setup and session management using Flask-SQLAlchemy.
 """
 
-from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, scoped_session
-from config import Config
+from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy.orm import DeclarativeBase
 
-# Create base class for declarative models
-Base = declarative_base()
+class Base(DeclarativeBase):
+  pass
 
-# Create database engine
-engine = None
-SessionLocal = None
+db = SQLAlchemy(model_class=Base)
 
-
-def init_db():
-    """Initialize database connection and create tables."""
-    global engine, SessionLocal
+def init_db(app):
+    """Initialize database with Flask app."""
+    db.init_app(app)
     
-    try:
-        # Create engine with connection pooling
-        engine = create_engine(
-            Config.DATABASE_URL,
-            pool_pre_ping=True,  # Verify connections before using
-            pool_size=5,
-            max_overflow=10
-        )
-        
-        # Create session factory
-        SessionLocal = scoped_session(
-            sessionmaker(autocommit=False, autoflush=False, bind=engine)
-        )
-        
-        # Import models to register them with Base
-        from models.sensor_data import SensorData
-        from models.device_state import DeviceState
-        
-        # Create all tables
-        Base.metadata.create_all(bind=engine)
-        
-        print("✓ Database initialized successfully")
-        return True
-        
-    except Exception as e:
-        print(f"✗ Failed to initialize database: {e}")
-        return False
-
+    # Import models to register them with SQLAlchemy
+    from models.sensor_data import SensorData
+    from models.device_state import DeviceState
+    
+    with app.app_context():
+        # Create tables for development (migrations will handle this in production)
+        # db.create_all() 
+        pass
 
 def get_db():
     """
-    Get a database session.
-    
-    Usage:
-        db = get_db()
-        try:
-            # Your database operations
-            db.commit()
-        except:
-            db.rollback()
-            raise
-        finally:
-            db.close()
+    Get the database session.
+    In Flask-SQLAlchemy, this is just db.session.
     """
-    if SessionLocal is None:
-        init_db()
-    return SessionLocal()
+    return db.session
 
-
-def close_db():
-    """Close database connection."""
-    if SessionLocal:
-        SessionLocal.remove()
-    if engine:
-        engine.dispose()
-    print("✓ Database connection closed")
+def close_db(e=None):
+    """
+    Close database connection.
+    Flask-SQLAlchemy handles this automatically at the end of the request.
+    """
+    # db.session.remove() is handled by Flask-SQLAlchemy
+    pass

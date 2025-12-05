@@ -8,9 +8,6 @@ from flask_cors import CORS
 from config import Config
 from models import init_db, close_db
 from mqtt.client import get_mqtt_handler
-from api import api_bp
-
-
 def create_app():
     """Create and configure the Flask application."""
     app = Flask(__name__)
@@ -19,7 +16,15 @@ def create_app():
     CORS(app)
     
     # Register blueprints
-    app.register_blueprint(api_bp)
+    from api import sensor_bp, ai_bp
+    app.register_blueprint(sensor_bp)
+    app.register_blueprint(ai_bp)
+    
+    # Initialize Database and Migrations
+    init_db(app)
+    from flask_migrate import Migrate
+    from models.database import db
+    Migrate(app, db)
     
     return app
 
@@ -32,10 +37,6 @@ def main():
     
     # Validate configuration
     config_valid = Config.validate()
-    
-    # Initialize Database
-    print("\n[1/3] Initializing database connection...")
-    init_db()
     
     # Initialize MQTT
     print("\n[2/3] Initializing MQTT client...")
@@ -57,10 +58,11 @@ def main():
         print("   Please check your .env file.")
     
     print("\n📡 Available endpoints:")
-    print(f"   GET  http://localhost:{Config.PORT}/api/health")
-    print(f"   GET  http://localhost:{Config.PORT}/api/current")
-    print(f"   GET  http://localhost:{Config.PORT}/api/history")
-    print(f"   POST http://localhost:{Config.PORT}/api/control")
+    print(f"   GET  http://localhost:{Config.PORT}/health")
+    print(f"   GET  http://localhost:{Config.PORT}/current")
+    print(f"   GET  http://localhost:{Config.PORT}/history")
+    print(f"   POST http://localhost:{Config.PORT}/control")
+    print(f"   POST http://localhost:{Config.PORT}/ai/predict")
     print("=" * 60 + "\n")
     
     # Run the Flask app

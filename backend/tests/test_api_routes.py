@@ -1,9 +1,14 @@
 import pytest
 from tests.schemas import HealthResponse, HistoryResponse, CurrentReadingResponse, ControlResponse, ErrorResponse
 
+# Auth header for tests
+AUTH_HEADER = {'Authorization': 'Bearer test_token'}
+
 def test_health_check(client):
     """Test the health check endpoint."""
-    response = client.get('/api/health')
+    # Health check is public (or was it? I put it in sensor_bp which is not auth protected? 
+    # Wait, I didn't put @require_auth on health_check in sensor_routes.py. Let's check.)
+    response = client.get('/health')
     assert response.status_code == 200
     
     # Validate schema
@@ -25,7 +30,7 @@ def test_get_history_success(client, mock_db_session):
     # Configure mock session to return list of records
     mock_db_session.query.return_value.order_by.return_value.limit.return_value.all.return_value = [mock_record]
     
-    response = client.get('/api/history?limit=10')
+    response = client.get('/history?limit=10', headers=AUTH_HEADER)
     assert response.status_code == 200
     
     # Validate schema
@@ -34,9 +39,14 @@ def test_get_history_success(client, mock_db_session):
     # Verify DB was queried correctly
     mock_db_session.query.assert_called()
 
+def test_get_history_unauthorized(client):
+    """Test retrieving history without token."""
+    response = client.get('/history?limit=10')
+    assert response.status_code == 401
+
 def test_get_history_invalid_limit(client):
     """Test retrieving history with invalid limit."""
-    response = client.get('/api/history?limit=0')
+    response = client.get('/history?limit=0', headers=AUTH_HEADER)
     assert response.status_code == 400
     
     # Validate error schema
@@ -57,7 +67,7 @@ def test_get_current_readings_success(client, mock_db_session):
     
     mock_db_session.query.return_value.order_by.return_value.first.return_value = mock_record
     
-    response = client.get('/api/current')
+    response = client.get('/current', headers=AUTH_HEADER)
     assert response.status_code == 200
     
     # Validate schema
@@ -67,7 +77,7 @@ def test_get_current_readings_not_found(client, mock_db_session):
     """Test retrieving current readings when no data exists."""
     mock_db_session.query.return_value.order_by.return_value.first.return_value = None
     
-    response = client.get('/api/current')
+    response = client.get('/current', headers=AUTH_HEADER)
     assert response.status_code == 404
     
     ErrorResponse(**response.json)
@@ -79,7 +89,7 @@ def test_control_device_success(client, mock_mqtt):
         'action': 'on'
     }
     
-    response = client.post('/api/control', json=payload)
+    response = client.post('/control', json=payload, headers=AUTH_HEADER)
     assert response.status_code == 200
     
     # Validate schema
@@ -95,7 +105,7 @@ def test_control_device_invalid_input(client):
         'action': 'on'
     }
     
-    response = client.post('/api/control', json=payload)
+    response = client.post('/control', json=payload, headers=AUTH_HEADER)
     assert response.status_code == 400
     
     ErrorResponse(**response.json)

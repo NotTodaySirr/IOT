@@ -72,3 +72,15 @@ def mock_ai_service(mocker):
     mock_service = MagicMock()
     mocker.patch('api.ai_routes.AIService', mock_service)
     return mock_service
+
+@pytest.fixture(autouse=True)
+def mock_supabase(mocker):
+    """Mock Supabase client for all tests."""
+    mock_client = MagicMock()
+    mock_user = MagicMock()
+    mock_client.auth.get_user.return_value = mock_user
+    
+    # Patch get_supabase_client in middleware
+    mocker.patch('api.middleware.get_supabase_client', return_value=mock_client)
+    
+    return mock_client
