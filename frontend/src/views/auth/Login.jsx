@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import useAuth from '../hooks/useAuth';
-import VintagePanel from '../components/ui/VintagePanel';
-import VintageInput from '../components/ui/VintageInput';
-import VintageButton from '../components/ui/VintageButton';
-import { useToast } from '../contexts/ToastContext';
+import useAuth from '../../hooks/useAuth';
+import VintagePanel from '../../components/ui/VintagePanel';
+import VintageInput from '../../components/ui/VintageInput';
+import VintageButton from '../../components/ui/VintageButton';
+import { useToast } from '../../contexts/ToastContext';
 
 const Login = ({ onLogin }) => {
     const [email, setEmail] = useState('');
@@ -45,7 +45,7 @@ const Login = ({ onLogin }) => {
                 <VintagePanel className="bg-vintage-beige">
                     <div className="mb-8 text-center">
                         <h1 className="text-2xl font-bold text-vintage-coffee uppercase tracking-widest mb-2">
-                            Authentication
+                            Login
                         </h1>
                         <div className="h-1 bg-vintage-coffee w-full mb-1 opacity-20"></div>
                         <div className="h-0.5 bg-vintage-coffee w-3/4 mx-auto opacity-20"></div>
@@ -71,7 +71,7 @@ const Login = ({ onLogin }) => {
 
                         <div className="pt-4 flex justify-center">
                             <VintageButton type="submit" variant="primary" disabled={loading}>
-                                {loading ? 'AUTHENTICATING...' : 'Authenticate'}
+                                {loading ? 'Logging in...' : 'Login'}
                             </VintageButton>
                         </div>
                     </form>

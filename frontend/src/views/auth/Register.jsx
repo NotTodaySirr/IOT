@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import useAuth from '../hooks/useAuth';
-import VintagePanel from '../components/ui/VintagePanel';
-import VintageInput from '../components/ui/VintageInput';
-import VintageButton from '../components/ui/VintageButton';
-import { useToast } from '../contexts/ToastContext';
+import useAuth from '../../hooks/useAuth';
+import VintagePanel from '../../components/ui/VintagePanel';
+import VintageInput from '../../components/ui/VintageInput';
+import VintageButton from '../../components/ui/VintageButton';
+import { useToast } from '../../contexts/ToastContext';
 
 const Register = () => {
     const [name, setName] = useState('');

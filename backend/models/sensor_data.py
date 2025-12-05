@@ -2,8 +2,8 @@
 SensorData model for storing environmental sensor readings.
 """
 
-from sqlalchemy import Column, Integer, Float, Boolean, DateTime, ForeignKey, func
-from sqlalchemy.orm import relationship
+from sqlalchemy import Column, Integer, Float, DateTime, ForeignKey, func, DECIMAL, BigInteger
+from sqlalchemy.dialects.postgresql import UUID
 from models.database import Base
 
 
@@ -12,26 +12,27 @@ class SensorData(Base):
     
     __tablename__ = 'sensor_data'
     
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
-    timestamp = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    temperature = Column(Float, nullable=False)
-    humidity = Column(Float, nullable=False)
-    co_level = Column(Float, nullable=False)
-    is_hazardous = Column(Boolean, nullable=False, default=False)
-
-    user = relationship("User", back_populates="sensor_readings")
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey('auth.users.id'), nullable=True)
+    # Note: referencing auth.users directly in SQLAlchemy can be tricky if not in same schema search path.
+    # Usually we just store the UUID string/type without strict FK constraint in SQLAlchemy if cross-schema.
+    # But since we added FK in SQL, we can keep it here or just use UUID type.
     
+    temperature = Column(DECIMAL(5, 2), nullable=False)
+    humidity = Column(DECIMAL(5, 2), nullable=False)
+    co_level = Column(Integer, nullable=False)
+    recorded_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
     def to_dict(self):
         """Convert model instance to dictionary."""
         return {
             'id': self.id,
-            'timestamp': self.timestamp.isoformat() if self.timestamp else None,
-            'temperature': self.temperature,
-            'humidity': self.humidity,
-            'co_level': self.co_level,
-            'is_hazardous': self.is_hazardous
+            'user_id': str(self.user_id) if self.user_id else None,
+            'recorded_at': self.recorded_at.isoformat() if self.recorded_at else None,
+            'temperature': float(self.temperature),
+            'humidity': float(self.humidity),
+            'co_level': self.co_level
         }
     
     def __repr__(self):
-        return f"<SensorData(id={self.id}, temp={self.temperature}°C, hum={self.humidity}%, co={self.co_level})>"
+        return f"<SensorData(id={self.id}, temp={self.temperature}, hum={self.humidity}, co={self.co_level})>"

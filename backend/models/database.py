@@ -35,7 +35,7 @@ def init_db():
         
         # Import models to register them with Base
         from models.sensor_data import SensorData
-        from models.user import User
+        from models.device_state import DeviceState
         
         # Create all tables
         Base.metadata.create_all(bind=engine)
