@@ -20,6 +20,8 @@ class Config:
     
     # Database Configuration
     DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/ecs_db')
+    SQLALCHEMY_DATABASE_URI = DATABASE_URL
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
     
     # Supabase Configuration
     SUPABASE_URL = os.getenv('SUPABASE_URL')

@@ -11,6 +11,7 @@ from mqtt.client import get_mqtt_handler
 def create_app():
     """Create and configure the Flask application."""
     app = Flask(__name__)
+    app.config.from_object(Config)
     
     # Enable CORS for all routes
     CORS(app)
