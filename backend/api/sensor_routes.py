@@ -40,7 +40,7 @@ def get_history():
         
         # Query database using SQLAlchemy
         db = get_db()
-        sensor_data = db.query(SensorData).order_by(SensorData.timestamp.desc()).limit(limit).all()
+        sensor_data = db.query(SensorData).order_by(SensorData.recorded_at.desc()).limit(limit).all()
         
         # Convert to dictionaries
         data = [record.to_dict() for record in sensor_data]
@@ -120,7 +120,7 @@ def get_current_readings():
     db = None
     try:
         db = get_db()
-        latest = db.query(SensorData).order_by(SensorData.timestamp.desc()).first()
+        latest = db.query(SensorData).order_by(SensorData.recorded_at.desc()).first()
         
         if latest is None:
             return jsonify({'error': 'No sensor data available'}), 404
