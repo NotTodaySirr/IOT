@@ -1,13 +1,32 @@
 import React from 'react';
 import { Navigate, useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 
-const mainLayout = ({ children, isAuthenticated, aiStatus, onLogout }) => {
+const mainLayout = ({ children, aiStatus }) => {
     const navigate = useNavigate();
     const location = useLocation();
+    const { isAuthenticated, loading, signOut } = useAuth();
 
+    // Show loading state while checking authentication
+    if (loading) {
+        return (
+            <div className="min-h-screen bg-vintage-beige flex items-center justify-center font-mono">
+                <div className="text-vintage-coffee text-lg uppercase tracking-widest animate-pulse">
+                    Loading...
+                </div>
+            </div>
+        );
+    }
+
+    // Redirect to login if not authenticated
     if (!isAuthenticated) {
         return <Navigate to="/login" replace />;
     }
+
+    const handleLogout = async () => {
+        await signOut();
+        navigate('/login');
+    };
 
     return (
         <div className="min-h-screen bg-vintage-beige p-8 flex flex-col items-center justify-center font-mono text-vintage-coffee selection:bg-vintage-coffee selection:text-vintage-beige">
@@ -37,7 +56,7 @@ const mainLayout = ({ children, isAuthenticated, aiStatus, onLogout }) => {
                             </button>
                         ))}
                         <button
-                            onClick={onLogout}
+                            onClick={handleLogout}
                             className="px-4 py-1 text-xs font-bold uppercase transition-all rounded-sm bg-vintage-red text-vintage-beige hover:bg-red-600 shadow-[2px_2px_0px_0px_rgba(0,0,0,0.1)] ml-2"
                         >
                             EXIT

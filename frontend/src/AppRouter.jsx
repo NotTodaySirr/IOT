@@ -8,9 +8,6 @@ import Terminal from './views/Terminal';
 import MainLayout from './layouts/mainLayout';
 
 const AppRouter = ({
-    isAuthenticated,
-    onLogin,
-    onLogout,
     sensors,
     actuators,
     toggleActuator,
@@ -19,13 +16,13 @@ const AppRouter = ({
 }) => {
     return (
         <Routes>
-            <Route path="/login" element={<Login onLogin={onLogin} />} />
+            <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
 
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
             <Route path="/dashboard" element={
-                <MainLayout isAuthenticated={isAuthenticated} aiStatus={aiStatus} onLogout={onLogout}>
+                <MainLayout aiStatus={aiStatus}>
                     <Dashboard
                         sensors={sensors}
                         actuators={actuators}
@@ -36,13 +33,13 @@ const AppRouter = ({
             } />
 
             <Route path="/archives" element={
-                <MainLayout isAuthenticated={isAuthenticated} aiStatus={aiStatus} onLogout={onLogout}>
+                <MainLayout aiStatus={aiStatus}>
                     <Archives history={history} />
                 </MainLayout>
             } />
 
             <Route path="/terminal" element={
-                <MainLayout isAuthenticated={isAuthenticated} aiStatus={aiStatus} onLogout={onLogout}>
+                <MainLayout aiStatus={aiStatus}>
                     <Terminal />
                 </MainLayout>
             } />

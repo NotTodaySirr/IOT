@@ -6,7 +6,7 @@ import VintageInput from '../../components/ui/VintageInput';
 import VintageButton from '../../components/ui/VintageButton';
 import { useToast } from '../../contexts/ToastContext';
 
-const Login = ({ onLogin }) => {
+const Login = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const navigate = useNavigate();
@@ -19,7 +19,7 @@ const Login = ({ onLogin }) => {
         const { success } = await signIn(email, password);
 
         if (success) {
-            onLogin();
+            // AuthContext will automatically update isAuthenticated
             navigate('/dashboard');
         } else if (error) {
             console.log(error);

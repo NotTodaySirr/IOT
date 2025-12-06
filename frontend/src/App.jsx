@@ -1,46 +1,34 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { AuthProvider } from './contexts/AuthContext';
 import { ToastProvider } from './contexts/ToastContext';
 import AppRouter from './AppRouter';
+import { useSensorStream } from './hooks/useSensorStream';
 import { useSimulation } from './mock/simulation';
 
 function App() {
-  // Auth State
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const navigate = useNavigate();
-
   // Sensor & Actuator State
   const [actuators, setActuators] = useState({ fan: false, heater: false, buzzer: false });
 
-  // Simulation Hook
-  const { sensors, history, aiStatus } = useSimulation(actuators);
+  // Data Source Selection (Real API vs Simulation)
+  const useRealApi = import.meta.env.VITE_USE_REAL_API === 'true';
+  const { sensors, history, aiStatus } = useRealApi ? useSensorStream(actuators) : useSimulation(actuators);
 
   const toggleActuator = (key) => {
     setActuators(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const handleLogin = () => {
-    setIsAuthenticated(true);
-  };
-
-  const handleLogout = () => {
-    setIsAuthenticated(false);
-    navigate('/login');
-  };
-
   return (
-    <ToastProvider>
-      <AppRouter
-        isAuthenticated={isAuthenticated}
-        onLogin={handleLogin}
-        onLogout={handleLogout}
-        sensors={sensors}
-        actuators={actuators}
-        toggleActuator={toggleActuator}
-        aiStatus={aiStatus}
-        history={history}
-      />
-    </ToastProvider>
+    <AuthProvider>
+      <ToastProvider>
+        <AppRouter
+          sensors={sensors}
+          actuators={actuators}
+          toggleActuator={toggleActuator}
+          aiStatus={aiStatus}
+          history={history}
+        />
+      </ToastProvider>
+    </AuthProvider>
   );
 }
 
