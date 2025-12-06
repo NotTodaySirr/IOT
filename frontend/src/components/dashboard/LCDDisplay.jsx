@@ -1,5 +1,5 @@
 import React from 'react';
-import ScreenOverlay from './ui/ScreenOverlay';
+import ScreenOverlay from '../common/ScreenOverlay';
 
 const LCDDisplay = ({ label, value, unit, warning }) => {
     return (

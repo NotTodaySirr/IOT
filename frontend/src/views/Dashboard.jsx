@@ -1,8 +1,8 @@
 import React from 'react';
-import LCDDisplay from '../components/LCDDisplay';
-import ActuatorButton from '../components/ActuatorButton';
+import LCDDisplay from '../components/dashboard/LCDDisplay';
+import ActuatorButton from '../components/dashboard/ActuatorButton';
 import VintagePanel from '../components/ui/VintagePanel';
-import ScreenOverlay from '../components/ui/ScreenOverlay';
+import ScreenOverlay from '../components/common/ScreenOverlay';
 
 const Dashboard = ({ sensors, actuators, toggleActuator, aiStatus }) => {
     return (

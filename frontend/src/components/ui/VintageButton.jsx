@@ -6,7 +6,8 @@ const VintageButton = ({
     type = 'button',
     variant = 'primary',
     fullWidth = false,
-    className = ''
+    className = '',
+    ...props
 }) => {
     const variantClasses = {
         primary: 'bg-vintage-coffee text-vintage-beige',
@@ -25,7 +26,9 @@ const VintageButton = ({
                 }
                 ${fullWidth ? 'w-full' : ''}
                 ${className}
+                disabled:opacity-50 disabled:pointer-events-none disabled:shadow-none disabled:translate-y-0
             `}
+            {...props}
         >
             {children}
         </button>

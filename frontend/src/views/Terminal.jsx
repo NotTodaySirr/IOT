@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import VintageTerminal from '../components/features/VintageTerminal';
+import VintageTerminal from '../components/terminal/VintageTerminal';
 
 const Terminal = () => {
     const [history, setHistory] = useState(['Welcome to IOT-OS v2.0', 'Type "HELP" for commands.']);
