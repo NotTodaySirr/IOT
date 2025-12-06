@@ -31,23 +31,29 @@ def stream_readings():
     mqtt_handler = get_mqtt_handler()
     
     def generate():
+        last_data = None
         while True:
-            # Wait for new data event (blocking, efficient)
-            mqtt_handler.new_data_event.wait()
+            # Wait for new data with a timeout (so we can send keep-alives)
+            event_occurred = mqtt_handler.new_data_event.wait(timeout=5.0)
             
-            # Get the data
-            if mqtt_handler.latest_reading:
-                data = json.dumps(mqtt_handler.latest_reading)
-                yield f"data: {data}\n\n"
-            
-            # Small sleep to prevent tight loop if event is set repeatedly fast
-            try:
-                # time.sleep(0.1) # Optional if needed
-                pass
-            except GeneratorExit:
-                break
+            if event_occurred and mqtt_handler.latest_reading:
+                current_data = mqtt_handler.latest_reading
+                # Clear event after reading so we can wait for next one
+                mqtt_handler.new_data_event.clear()
+                # Only yield if data has changed
+                if current_data != last_data:
+                    data = json.dumps(current_data)
+                    yield f"data: {data}\n\n"
+                    last_data = current_data
+            else:
+                # Send a keep-alive comment to prevent connection timeout
+                yield ": keep-alive\n\n"
                 
-    return Response(stream_with_context(generate()), mimetype='text/event-stream')
+    response = Response(stream_with_context(generate()), mimetype='text/event-stream')
+    response.headers['Cache-Control'] = 'no-cache'
+    response.headers['X-Accel-Buffering'] = 'no'
+    response.headers['Connection'] = 'keep-alive'
+    return response
 
 
 @sensor_bp.route('/history', methods=['GET'])

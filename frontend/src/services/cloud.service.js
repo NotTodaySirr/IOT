@@ -4,19 +4,38 @@ import api from './api';
  * Cloud Service
  * 
  * Handles fetching of historical data from the cloud database.
- * Designed for lower frequency fetching (e.g., 15-30 min intervals).
  */
 
 /**
- * Fetch historical sensor data for charts and logs.
+ * Fetches chart data for a given time range.
+ * Uses limit mode (no pagination) for chart visualization.
  * 
- * @param {Object} options - Query options
- * @param {string} options.timeRange - Time range (e.g., '15m', '30m', '1h', '24h')
- * @param {number} options.limit - Maximum number of records
- * @returns {Promise<Array<{time: string, temp: number, humidity: number, co: number, status: string}>>}
+ * @param {string} startISO - ISO date string for start
+ * @param {string} endISO - ISO date string for end
+ * @param {number} limit - Max records to fetch
+ * @returns {Promise<{success: boolean, data: Array, count: number}>}
  */
-export const getHistory = async ({ timeRange = '30m', limit = 100 } = {}) => {
-    // TODO: Implement API call to fetch historical data
-    // return await api.get('/cloud/history', { params: { timeRange, limit } });
-    throw new Error('getHistory: Not implemented');
+export const fetchChartHistory = async (startISO, endISO, limit = 50000) => {
+    const response = await api.get('/history', {
+        params: { start: startISO, end: endISO, limit }
+    });
+    return response.data;
 };
+
+/**
+ * Fetches paginated table data for a specific date range.
+ * 
+ * @param {object} options
+ * @param {string} options.start - ISO date string for start of day
+ * @param {string} options.end - ISO date string for end of day
+ * @param {number} options.page - Page number
+ * @param {number} options.perPage - Records per page
+ * @returns {Promise<{success: boolean, data: Array, pagination: object}>}
+ */
+export const fetchTableHistory = async ({ start, end, page = 1, perPage = 10 }) => {
+    const response = await api.get('/history', {
+        params: { start, end, page, per_page: perPage }
+    });
+    return response.data;
+};
+

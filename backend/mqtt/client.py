@@ -5,6 +5,7 @@ Subscribes to sensor data uploads and publishes control commands.
 
 import json
 import threading
+import random
 from datetime import datetime
 import paho.mqtt.client as mqtt
 from config import Config
@@ -15,9 +16,10 @@ class MQTTHandler:
     """Manages MQTT connection and message handling."""
     
     def __init__(self):
-        self.client = mqtt.Client(client_id=Config.MQTT_CLIENT_ID)
+        # Append random suffix to avoid conflicts on public broker
+        client_id = f"{Config.MQTT_CLIENT_ID}_{random.randint(1000, 9999)}"
+        self.client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1, client_id=client_id)
         self.client.on_connect = self.on_connect
-        self.client.on_message = self.on_message
         self.client.on_message = self.on_message
         self.client.on_disconnect = self.on_disconnect
         
@@ -25,6 +27,7 @@ class MQTTHandler:
         self.last_save_time = datetime.min # Force immediate first save
         self.latest_reading = None # Store latest parsed data for valid streams
         self.new_data_event = threading.Event() # Event to signal SSE threads
+        self.app = None # Flask app instance for app context
         
         # Set username and password if provided
         if Config.MQTT_USERNAME and Config.MQTT_PASSWORD:
@@ -104,7 +107,7 @@ class MQTTHandler:
                 'timestamp': current_time.isoformat()
             }
             self.new_data_event.set() # Wake up waiting threads
-            self.new_data_event.clear() # Reset for next event
+            # Note: Don't clear immediately - let waiting threads consume it first
             
             # --- 2. THRoTTLING LOGIC ---
             should_save = False
@@ -120,18 +123,23 @@ class MQTTHandler:
                 
             # --- 3. DATABASE SAVE ---
             if should_save:
-                db = get_db()
-                sensor_reading = SensorData(
-                    temperature=temperature,
-                    humidity=humidity,
-                    co_level=co_level,
-                    is_hazardous=is_hazardous
-                )
-                db.add(sensor_reading)
-                db.commit()
-                
-                self.last_save_time = current_time
-                print(f"✓ Saved to DB: Temp={temperature}, Hum={humidity}, CO={co_level}")
+                if self.app:
+                    with self.app.app_context():
+                        db = get_db()
+                        sensor_reading = SensorData(
+                            temperature=temperature,
+                            humidity=humidity,
+                            co_level=co_level
+                            # Note: is_hazardous is not in the DB model, only used for streaming
+                        )
+                        db.add(sensor_reading)
+                        db.commit()
+                        db.close()
+                        
+                        self.last_save_time = current_time
+                        print(f"✓ Saved to DB: Temp={temperature}, Hum={humidity}, CO={co_level}")
+                else:
+                    print("⚠️  No Flask app context available, skipping database save")
             else:
                 # print(f"» Streamed only (Skipped DB)") # Optional: Comment out to reduce noise
                 pass

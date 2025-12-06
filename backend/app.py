@@ -49,6 +49,9 @@ def main():
     print("\n[3/3] Starting Flask server...")
     app = create_app()
     
+    # Give MQTT handler access to Flask app context for database operations
+    mqtt_handler.app = app
+    
     print("\n" + "=" * 60)
     print(f"✓ Server running on http://localhost:{Config.PORT}")
     print(f"✓ Environment: {Config.FLASK_ENV}")
