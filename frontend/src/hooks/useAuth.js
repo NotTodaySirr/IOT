@@ -24,13 +24,13 @@ const useAuth = () => {
 
             if (error) {
                 setError(error.message);
-                return { success: false, data: null };
+                return { success: false, data: null, error: error.message };
             }
 
-            return { success: true, data };
+            return { success: true, data, error: null };
         } catch (err) {
             setError(err.message);
-            return { success: false, data: null };
+            return { success: false, data: null, error: err.message };
         } finally {
             setLoading(false);
         }
@@ -53,13 +53,13 @@ const useAuth = () => {
 
             if (error) {
                 setError(error.message);
-                return { success: false, data: null };
+                return { success: false, data: null, error: error.message };
             }
 
-            return { success: true, data };
+            return { success: true, data, error: null };
         } catch (err) {
             setError(err.message);
-            return { success: false, data: null };
+            return { success: false, data: null, error: err.message };
         } finally {
             setLoading(false);
         }
@@ -78,13 +78,13 @@ const useAuth = () => {
 
             if (error) {
                 setError(error.message);
-                return { success: false };
+                return { success: false, error: error.message };
             }
 
-            return { success: true };
+            return { success: true, error: null };
         } catch (err) {
             setError(err.message);
-            return { success: false };
+            return { success: false, error: err.message };
         } finally {
             setLoading(false);
         }

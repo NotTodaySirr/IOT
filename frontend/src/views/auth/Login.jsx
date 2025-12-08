@@ -11,19 +11,20 @@ const Login = () => {
     const [password, setPassword] = useState('');
     const navigate = useNavigate();
     const { signIn, loading, error } = useAuth();
-    const { showError } = useToast();
+    const { showError, showSuccess } = useToast();
 
     const handleLogin = async (e) => {
         e.preventDefault();
 
-        const { success } = await signIn(email, password);
+        const { success, error: authError } = await signIn(email, password);
 
         if (success) {
+            showSuccess('Login successful... Accessing Terminal');
             // AuthContext will automatically update isAuthenticated
             navigate('/dashboard');
-        } else if (error) {
-            console.log(error);
-            showError(error);
+        } else if (authError) {
+            console.log(authError);
+            showError(authError);
         }
     };
 

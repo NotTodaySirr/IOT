@@ -44,7 +44,7 @@ const Register = () => {
             phone: phone.trim(),
         };
 
-        const { success } = await signUp(email, password, metadata);
+        const { success, error: authError } = await signUp(email, password, metadata);
 
         if (success) {
             showSuccess('Registration successful! Please log in.');
@@ -52,8 +52,8 @@ const Register = () => {
             setTimeout(() => {
                 navigate('/login');
             }, 1500);
-        } else if (error) {
-            showError(error);
+        } else if (authError) {
+            showError(authError);
         }
     };
 

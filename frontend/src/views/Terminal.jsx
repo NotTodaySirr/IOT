@@ -1,10 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import VintageTerminal from '../components/terminal/VintageTerminal';
 
 const Terminal = () => {
     const [history, setHistory] = useState(['Welcome to IOT-OS v2.0', 'Type "HELP" for commands.']);
     const [input, setInput] = useState('');
-    const endRef = useRef(null);
 
     const handleCommand = (e) => {
         if (e.key === 'Enter') {
@@ -37,19 +36,15 @@ const Terminal = () => {
         }
     };
 
-    useEffect(() => {
-        endRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [history]);
-
     return (
         <VintageTerminal
             history={history}
             input={input}
             onInputChange={(e) => setInput(e.target.value)}
             onCommand={handleCommand}
-            inputRef={endRef}
         />
     );
 };
 
 export default Terminal;
+
