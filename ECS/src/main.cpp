@@ -8,12 +8,14 @@
 
 // WiFi and MQTT Configuration
 // Uncomment the following line to bypass WiFi and MQTT for hardware testing
+// Uncomment the following line to bypass WiFi and MQTT for hardware testing
 #define BYPASS_NETWORKING
 
-const char* WIFI_SSID     = "Your_WiFi_Name";
-const char* WIFI_PASSWORD = "Your_WiFi_Password";
-const char* MQTT_SERVER   = "192.168.1.100";
+const char* WIFI_SSID     = "Wokwi-GUEST";
+const char* WIFI_PASSWORD = "";
+const char* MQTT_SERVER   = "broker.hivemq.com";
 const int   MQTT_PORT     = 1883;
+
 
 // Time configuration
 const char* ntpServer = "pool.ntp.org";
@@ -54,22 +56,48 @@ LiquidCrystal_I2C lcd2(0x26, 20, 4);
 
 // Helper Functions
 float calculatePPM(int analogValue) {
-  // 1. Convert ADC value to Voltage (ESP32 is 3.3V, 12-bit ADC)
+  // 1. Convert ADC value to Voltage (ESP32-S3 is 3.3V, 12-bit ADC)
   float voltage = analogValue * (3.3 / 4095.0);
 
-  // Avoid division by zero if sensor is disconnected
-  if(voltage == 0) return 0;
+  // 2. Handle edge cases to prevent overflow
+  // If voltage is too low (sensor disconnected or no gas)
+  if (voltage < 0.1) {
+    return 0.0;
+  }
 
-  // 2. Calculate Sensor Resistance (Rs)
-  float resistance = (3.3 - voltage) / voltage; 
+  // If voltage is too high (near 3.3V), sensor resistance is near 0
+  // This would cause division by zero or very high PPM readings
+  if (voltage > 3.2) {
+    return 9999.0; // Cap at max displayable value
+  }
 
-  // 3. Calculate Ratio Rs/R0
-  float ratio = resistance / R0;
+  // 3. Calculate Sensor Resistance (Rs) using voltage divider formula
+  // In Wokwi gas sensor: Vout = VCC * RL / (Rs + RL)
+  // Assuming internal load resistor RL ≈ 10kΩ
+  const float RL = 10.0; // Load resistance in kOhms
+  
+  // Rearranging: Rs = RL * (VCC / Vout - 1)
+  float sensorResistance = RL * ((3.3 / voltage) - 1.0);
 
-  // 4. Calculate PPM using standard Logarithmic Formula for MQ-7
+  // 4. Calculate Ratio Rs/R0
+  float ratio = sensorResistance / R0;
+
+  // 5. Bounds check on ratio to prevent extreme PPM values
+  if (ratio < 0.01) {
+    return 9999.0;
+  }
+  if (ratio > 100.0) {
+    return 0.0;
+  }
+
+  // 6. Calculate PPM using MQ-7 logarithmic formula
   // PPM = A * (Rs/R0)^B
-  // A = 99.048, B = -1.518 (Derived from datasheet curve)
+  // For MQ-7: A ≈ 99.048, B ≈ -1.518
   float ppm = 99.048 * pow(ratio, -1.518);
+
+  // 7. Final bounds check
+  if (ppm < 0) ppm = 0;
+  if (ppm > 9999.0) ppm = 9999.0;
 
   return ppm;
 }
@@ -317,9 +345,17 @@ void loop() {
   dtostrf(min(coPPM, 9999.0f), 1, 2, gasStr); // Cap PPM to prevent buffer overflow
 
   #ifndef BYPASS_NETWORKING
-  client.publish("room/temp", tempStr);
-  client.publish("room/humidity", humStr);
-  client.publish("room/co_ppm", gasStr);
+  // Construct JSON Payload manually to avoid extra dependencies
+  String payload = "{\"temperature\":";
+  payload += tempStr;
+  payload += ",\"humidity\":";
+  payload += humStr;
+  payload += ",\"co_level\":";
+  payload += gasStr;
+  payload += "}";
+  
+  // Publish to 'ecs/upload'
+  client.publish("ecs/upload", payload.c_str());
   #endif
   
   Serial.println("[LOOP] Loop iteration complete");
