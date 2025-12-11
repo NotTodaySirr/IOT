@@ -47,9 +47,9 @@ DHT dht(DHT_PIN, DHT22);
 WiFiClient espClient;
 PubSubClient client(espClient);
 
-// LCD 1 (Temp/Humidity)
+// LCD 1 (Temp/Humidity) - Address 0x27
 LiquidCrystal_I2C lcd1(0x27, 20, 4);
-// LCD 2 (Status/Time)
+// LCD 2 (Status/Time) - Address 0x26
 LiquidCrystal_I2C lcd2(0x26, 20, 4);
 
 // Helper Functions
@@ -100,8 +100,7 @@ void init_hardware(){
 
   // 2. Initialise I2C and LCDs
   Serial.println("[HW] Starting I2C...");
-  Wire.setPins(I2C_SDA, I2C_SCL);  // ESP32-S3: Set pins before begin()
-  Wire.begin();
+  Wire.begin(I2C_SDA, I2C_SCL);
   delay(200); // Allow I2C bus to stabilize
   Serial.println("[HW] I2C started on SDA=" + String(I2C_SDA) + ", SCL=" + String(I2C_SCL));
   
