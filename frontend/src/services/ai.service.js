@@ -7,12 +7,17 @@ import api from './api';
  */
 
 /**
- * Fetch the latest AI diagnostic analysis.
+ * Get AI Prediction based on current sensor data.
  * 
- * @returns {Promise<{message: string, detail: string, isAnomaly: boolean}>}
+ * @param {Object} sensorData - { temperature_C, humidity_%, CO_ppm, action }
+ * @returns {Promise<Object>} - The prediction result from backend
  */
-export const getDiagnostic = async () => {
-    // TODO: Implement API call to fetch AI diagnostic
-    // return await api.get('/ai/diagnostic');
-    throw new Error('getDiagnostic: Not implemented');
+export const getPrediction = async (sensorData) => {
+    try {
+        const response = await api.post('/ai/predict', sensorData);
+        return response.data;
+    } catch (error) {
+        console.error("AI Prediction Error:", error);
+        throw error;
+    }
 };

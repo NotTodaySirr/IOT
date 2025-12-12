@@ -29,8 +29,18 @@ def predict():
         if not data:
             return jsonify({'error': 'Request body must be JSON'}), 400
             
+        # Validate required fields
+        required_fields = ['temperature_C', 'humidity_%', 'CO_ppm', 'action']
+        missing_fields = [field for field in required_fields if field not in data]
+        
+        if missing_fields:
+             return jsonify({'error': f'Missing required fields: {", ".join(missing_fields)}'}), 400
+             
         # Call the AI Service
         result = AIService.predict(data)
+        
+        if result.get('status') == 'error':
+             return jsonify(result), 500
         
         return jsonify(result), 200
         
