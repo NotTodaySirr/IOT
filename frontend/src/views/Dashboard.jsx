@@ -1,10 +1,28 @@
-import React from 'react';
+import React, { useState } from 'react';
 import LCDDisplay from '../components/dashboard/LCDDisplay';
 import ActuatorButton from '../components/dashboard/ActuatorButton';
 import VintagePanel from '../components/ui/VintagePanel';
 import ScreenOverlay from '../components/common/ScreenOverlay';
+import * as hardwareService from '../services/hardware.service';
 
-const Dashboard = ({ sensors, actuators, toggleActuator, aiStatus }) => {
+const Dashboard = ({ sensors, aiStatus }) => {
+    // Actuator state management
+    const [actuators, setActuators] = useState({ fan: false, purifier: false, buzzer: false });
+
+    const toggleActuator = async (key) => {
+        const newState = !actuators[key];
+        setActuators(prev => ({ ...prev, [key]: newState }));
+
+        // Call the hardware service to send command to backend
+        try {
+            await hardwareService.toggleActuator(key, newState);
+        } catch (error) {
+            console.error('Failed to toggle actuator:', error);
+            // Revert state on error
+            setActuators(prev => ({ ...prev, [key]: !newState }));
+        }
+    };
+
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {/* Sensor Panel */}
@@ -23,9 +41,9 @@ const Dashboard = ({ sensors, actuators, toggleActuator, aiStatus }) => {
                         onClick={() => toggleActuator('fan')}
                     />
                     <ActuatorButton
-                        label="HEATING UNIT"
-                        active={actuators.heater}
-                        onClick={() => toggleActuator('heater')}
+                        label="AIR PURIFIER"
+                        active={actuators.purifier}
+                        onClick={() => toggleActuator('purifier')}
                     />
                     <ActuatorButton
                         label="ALARM BUZZER"

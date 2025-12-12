@@ -9,7 +9,7 @@
 // WiFi and MQTT Configuration
 // Uncomment the following line to bypass WiFi and MQTT for hardware testing
 // Uncomment the following line to bypass WiFi and MQTT for hardware testing
-#define BYPASS_NETWORKING
+//#define BYPASS_NETWORKING
 
 const char* WIFI_SSID     = "Wokwi-GUEST";
 const char* WIFI_PASSWORD = "";
@@ -102,6 +102,71 @@ float calculatePPM(int analogValue) {
   return ppm;
 }
 
+// MQTT Callback Function to handle incoming commands
+void mqttCallback(char* topic, byte* payload, unsigned int length) {
+  Serial.println("\n========== MQTT CALLBACK TRIGGERED ==========");
+  Serial.print("[MQTT] Topic: ");
+  Serial.println(topic);
+  Serial.print("[MQTT] Length: ");
+  Serial.println(length);
+  
+  // Convert payload to string
+  char message[length + 1];
+  for (unsigned int i = 0; i < length; i++) {
+    message[i] = (char)payload[i];
+  }
+  message[length] = '\0';
+  
+  Serial.print("[MQTT] Payload: '");
+  Serial.print(message);
+  Serial.println("'");
+  
+  // Handle FAN commands
+  if (strcmp(message, "FAN_ON") == 0) {
+    Serial.println("[CONTROL] >>> Executing FAN_ON command");
+    digitalWrite(RELAY_FAN1_PIN, HIGH);
+    Serial.print("[CONTROL] >>> RELAY_FAN1_PIN (GPIO ");
+    Serial.print(RELAY_FAN1_PIN);
+    Serial.println(") set to HIGH");
+  } else if (strcmp(message, "FAN_OFF") == 0) {
+    Serial.println("[CONTROL] >>> Executing FAN_OFF command");
+    digitalWrite(RELAY_FAN1_PIN, LOW);
+    Serial.print("[CONTROL] >>> RELAY_FAN1_PIN (GPIO ");
+    Serial.print(RELAY_FAN1_PIN);
+    Serial.println(") set to LOW");
+  }
+  // Handle PURIFIER commands
+  else if (strcmp(message, "PURIFIER_ON") == 0) {
+    Serial.println("[CONTROL] >>> Executing PURIFIER_ON command");
+    digitalWrite(RELAY_FAN2_PIN, HIGH);
+    Serial.print("[CONTROL] >>> RELAY_FAN2_PIN (GPIO ");
+    Serial.print(RELAY_FAN2_PIN);
+    Serial.println(") set to HIGH");
+  } else if (strcmp(message, "PURIFIER_OFF") == 0) {
+    Serial.println("[CONTROL] >>> Executing PURIFIER_OFF command");
+    digitalWrite(RELAY_FAN2_PIN, LOW);
+    Serial.print("[CONTROL] >>> RELAY_FAN2_PIN (GPIO ");
+    Serial.print(RELAY_FAN2_PIN);
+    Serial.println(") set to LOW");
+  }
+  // Handle BUZZER commands (if needed in future)
+  else if (strcmp(message, "BUZZER_ON") == 0) {
+    Serial.println("[CONTROL] >>> Executing BUZZER_ON command");
+    ledcWriteTone(LEDC_CHANNEL, 1000);
+    Serial.println("[CONTROL] >>> Buzzer tone set to 1000Hz");
+  } else if (strcmp(message, "BUZZER_OFF") == 0) {
+    Serial.println("[CONTROL] >>> Executing BUZZER_OFF command");
+    ledcWriteTone(LEDC_CHANNEL, 0);
+    Serial.println("[CONTROL] >>> Buzzer turned OFF");
+  }
+  else {
+    Serial.print("[CONTROL] !!! UNKNOWN COMMAND: '");
+    Serial.print(message);
+    Serial.println("'");
+  }
+  Serial.println("========== CALLBACK COMPLETE ==========\n");
+}
+
 // Initialise Function (Flow A)
 void init_hardware(){
   Serial.println("[HW] Starting hardware init...");
@@ -186,6 +251,7 @@ void init_wifi() {
 
 void init_mqtt() {
   client.setServer(MQTT_SERVER, MQTT_PORT);
+  client.setCallback(mqttCallback);  // Set the callback for incoming messages
   
   lcd1.setCursor(0, 2); lcd1.print("MQTT: Connecting...");
   
@@ -196,6 +262,12 @@ void init_mqtt() {
     if (client.connect("ESP32_Room_Monitor")) {
       Serial.println("connected");
       lcd1.setCursor(0, 2); lcd1.print("MQTT: Connected  ");
+      
+      // Subscribe to control topic
+      client.subscribe("ecs/control");
+      Serial.println("[MQTT] Subscribed to ecs/control");
+      
+      // Publish online status
       client.publish("room/status", "online");
     } else {
       Serial.print("failed, rc=");
@@ -273,7 +345,12 @@ void loop() {
   }
   
   #ifndef BYPASS_NETWORKING
-  if (!client.connected()) init_mqtt();
+  // Check MQTT connection status
+  if (!client.connected()) {
+    Serial.println("[LOOP] MQTT disconnected, reconnecting...");
+    init_mqtt();
+  }
+  // CRITICAL: Process incoming MQTT messages
   client.loop();
   #endif
 
@@ -361,3 +438,5 @@ void loop() {
   Serial.println("[LOOP] Loop iteration complete");
   delay(1000);
 }
+
+

@@ -58,14 +58,18 @@
       "id": "relay1",
       "top": 57.8,
       "left": 182.4,
-      "attrs": {}
+      "attrs": {
+        "transistor": "pnp"
+      }
     },
     {
       "type": "wokwi-relay-module",
       "id": "relay2",
       "top": 105.8,
       "left": 182.4,
-      "attrs": {}
+      "attrs": {
+        "transistor": "pnp"
+      }
     },
     {
       "type": "wokwi-buzzer",
@@ -110,6 +114,24 @@
       "left": 96,
       "attrs": {
         "value": "220"
+      }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "fan1",
+      "top": -50,
+      "left": 280,
+      "attrs": {
+        "color": "blue"
+      }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "fan2",
+      "top": -50,
+      "left": 320,
+      "attrs": {
+        "color": "orange"
       }
     }
   ],
@@ -537,6 +559,42 @@
         "h-28.8",
         "v0.1"
       ]
+    ],
+    [
+      "bb1:bp.22",
+      "relay1:COM",
+      "red",
+      []
+    ],
+    [
+      "relay1:NO",
+      "fan1:A",
+      "blue",
+      []
+    ],
+    [
+      "fan1:C",
+      "bb1:tn.24",
+      "black",
+      []
+    ],
+    [
+      "bb1:bp.23",
+      "relay2:COM",
+      "red",
+      []
+    ],
+    [
+      "relay2:NO",
+      "fan2:A",
+      "orange",
+      []
+    ],
+    [
+      "fan2:C",
+      "bb1:bn.24",
+      "black",
+      []
     ]
   ],
   "dependencies": {}

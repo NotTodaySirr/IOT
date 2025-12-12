@@ -133,7 +133,7 @@ def control_device():
     
     Request Body (JSON):
         {
-            "device": "fan" | "heater" | "purifier",
+            "device": "fan" | "purifier",
             "action": "on" | "off"
         }
     
@@ -150,7 +150,7 @@ def control_device():
         action = data.get('action', '').lower()
         
         # Validate input
-        valid_devices = ['fan', 'heater', 'purifier']
+        valid_devices = ['fan', 'purifier']
         valid_actions = ['on', 'off']
         
         if device not in valid_devices:

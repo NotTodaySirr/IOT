@@ -36,7 +36,11 @@ export const getActuatorState = async () => {
  * @returns {Promise<void>}
  */
 export const toggleActuator = async (id, state) => {
-    // TODO: Implement API call to toggle actuator
-    // return await api.post(`/hardware/actuators/${id}`, { state });
-    throw new Error('toggleActuator: Not implemented');
+    const device = id;
+    const action = state ? 'on' : 'off';
+
+    return await api.post('/control', {
+        device,
+        action
+    });
 };
