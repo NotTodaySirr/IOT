@@ -25,6 +25,12 @@ The system uses a hybrid architecture where monitoring is database-driven, but c
 * [cite_start]**Step 3 (Execution):** ESP32 receives the command via MQTT and triggers the Relay[cite: 122].
 * [cite_start]**Step 4 (Feedback):** ESP32 publishes the new status back to the Web to update the UI buttons (ACK)[cite: 123].
 
+#### Frontend → Hardware Command Path (Fans & Buzzer)
+* **Step A:** The Dashboard buttons (Fan/Purifier/Buzzer) call the backend `POST /control` endpoint with `{ device: 'fan' | 'purifier' | 'buzzer', action: 'on' | 'off' }`.
+* **Step B:** The backend translates the request into MQTT commands (`FAN_ON` / `FAN_OFF`, `PURIFIER_ON` / `PURIFIER_OFF`, `BUZZER_ON` / `BUZZER_OFF`) and publishes them to the `ecs/control` topic.
+* **Step C:** The ESP32 firmware listens on `ecs/control`; in `mqttCallback` it maps the commands to GPIO: `RELAY_FAN1_PIN` / `RELAY_FAN2_PIN` drive the two fan relays, while `BUZZER_PIN` uses `ledcWriteTone` to start/stop the buzzer.
+* **Step D:** After executing the command, the ESP32 can publish a status payload on `ecs/status` so the web UI LEDs stay in sync with the physical relays and buzzer.
+
 ---
 
 ## 2. Infrastructure & Database Specification
