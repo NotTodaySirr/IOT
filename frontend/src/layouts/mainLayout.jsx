@@ -2,7 +2,7 @@ import React from 'react';
 import { Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
-const mainLayout = ({ children, aiStatus }) => {
+const mainLayout = ({ children, aiStatus = { isAnomaly: false, message: 'SYSTEM READY' } }) => {
     const navigate = useNavigate();
     const location = useLocation();
     const { isAuthenticated, loading, signOut } = useAuth();

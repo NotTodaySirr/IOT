@@ -9,10 +9,8 @@ import MainLayout from './layouts/mainLayout';
 
 const AppRouter = ({
     sensors,
-    actuators,
-    toggleActuator,
-    aiStatus,
-    history
+    history,
+    useRealApi
 }) => {
     return (
         <Routes>
@@ -22,24 +20,22 @@ const AppRouter = ({
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
             <Route path="/dashboard" element={
-                <MainLayout aiStatus={aiStatus}>
+                <MainLayout>
                     <Dashboard
                         sensors={sensors}
-                        actuators={actuators}
-                        toggleActuator={toggleActuator}
-                        aiStatus={aiStatus}
+                        useRealApi={useRealApi}
                     />
                 </MainLayout>
             } />
 
             <Route path="/archives" element={
-                <MainLayout aiStatus={aiStatus}>
+                <MainLayout>
                     <Archives history={history} />
                 </MainLayout>
             } />
 
             <Route path="/terminal" element={
-                <MainLayout aiStatus={aiStatus}>
+                <MainLayout>
                     <Terminal />
                 </MainLayout>
             } />
