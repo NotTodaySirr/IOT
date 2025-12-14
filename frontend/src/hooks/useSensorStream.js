@@ -15,6 +15,8 @@ export const useSensorStream = () => {
         detail: 'Waiting for stream...'
     });
 
+    const [aiPrediction, setAiPrediction] = useState(null);
+
     useEffect(() => {
         // Use environment variable or default to localhost:5000
         const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
@@ -39,6 +41,8 @@ export const useSensorStream = () => {
                 // Update AI Status from streamed prediction
                 if (data.ai_prediction && data.ai_prediction.status === 'success') {
                     const ai = data.ai_prediction;
+                    setAiPrediction(ai); // Save full prediction object
+
                     const recAction = ai.recommended_action;
                     const futureEnv = ai.future_environment;
 
@@ -85,5 +89,5 @@ export const useSensorStream = () => {
         };
     }, []); // Empty dependency array means it runs once on mount
 
-    return { sensors, history, aiStatus };
+    return { sensors, history, aiStatus, aiPrediction };
 };

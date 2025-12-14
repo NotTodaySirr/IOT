@@ -8,7 +8,7 @@ import { useSimulation } from './mock/simulation';
 function App() {
   // Data Source Selection (Real API vs Simulation)
   const useRealApi = import.meta.env.VITE_USE_REAL_API === 'true';
-  const { sensors, history, aiStatus } = useRealApi ? useSensorStream() : useSimulation();
+  const { sensors, history, aiStatus, aiPrediction } = useRealApi ? useSensorStream() : useSimulation();
 
   return (
     <AuthProvider>
@@ -17,6 +17,7 @@ function App() {
           sensors={sensors}
           history={history}
           aiStatus={aiStatus}
+          prediction={aiPrediction}
           useRealApi={useRealApi}
         />
       </ToastProvider>

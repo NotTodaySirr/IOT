@@ -91,8 +91,8 @@ class AIPredictionService:
                 "status": "success",
                 "future_environment": {
                     "temperature_C": round(future_env[0][0], 2),
-                    "humidity_%": round(future_env[0][1], 2),
-                    "CO_ppm": round(future_env[0][2], 2)
+                    "humidity_%": max(0, round(future_env[0][1], 2)),
+                    "CO_ppm": max(0, round(future_env[0][2], 2))
                 },
                 "recommended_action": recommended_action
             }
