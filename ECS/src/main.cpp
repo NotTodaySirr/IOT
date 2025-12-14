@@ -27,11 +27,11 @@ const int   daylightOffset_sec = 0;
 // 10.0 kOhms is a common value for MQ-7 sensors
 const float R0 = 10.0;
 
-// Pin definitions (ESP32-S3 compatible)
+// Pin definitions
 #define DHT_PIN         4
-#define MQ7_PIN         1   // ESP32-S3: ADC1_CH0 (GPIO 34 doesn't exist on S3)
-#define RELAY_FAN1_PIN  38  // ESP32-S3: GPIO 38 (GPIO 26 doesn't exist on S3)
-#define RELAY_FAN2_PIN  39  // ESP32-S3: GPIO 39 (GPIO 27 doesn't exist on S3)
+#define MQ7_PIN         10   
+#define RELAY_FAN1_PIN  38  
+#define RELAY_FAN2_PIN  39  
 #define LED_RED_PIN     18
 #define LED_GREEN_PIN   19
 #define BUZZER_PIN      5
