@@ -8,6 +8,7 @@ from flask import jsonify, request
 from api import ai_bp
 from services.ai_prediction_service import AIPredictionService
 from api.middleware import require_auth
+from ai.chatbot.chatbot import ask_iot_ai 
 
 @ai_bp.route('/predict', methods=['POST'])
 @require_auth
@@ -46,3 +47,20 @@ def predict():
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+@ai_bp.route('/chatbot', methods=['POST'])
+def chatendpoint():
+    """
+    Endpoint for AI chatbot interaction.
+    Expects JSON body with 'query' field.
+    """
+    data = request.json
+    user_query = data.get('query')
+    
+    if not user_query:
+        return jsonify({"error": "No query provided"}), 400
+
+    # Call the AI function
+    ai_response = ask_iot_ai(user_query)
+            
+    return jsonify({"response": ai_response})

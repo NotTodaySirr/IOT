@@ -61,14 +61,6 @@ def main():
         print("   The server is running but may not function correctly.")
         print("   Please check your .env file.")
     
-    print("\n📡 Available endpoints:")
-    print(f"   GET  http://localhost:{Config.PORT}/health")
-    print(f"   GET  http://localhost:{Config.PORT}/current")
-    print(f"   GET  http://localhost:{Config.PORT}/history")
-    print(f"   POST http://localhost:{Config.PORT}/control")
-    print(f"   POST http://localhost:{Config.PORT}/ai/predict")
-    print("=" * 60 + "\n")
-    
     # Run the Flask app
     try:
         app.run(
