@@ -21,3 +21,20 @@ export const getPrediction = async (sensorData) => {
         throw error;
     }
 };
+
+/**
+ * Send a query to the AI Chatbot.
+ * 
+ * @param {string} query - The user's message/query.
+ * @returns {Promise<string>} - The AI's response text.
+ */
+export const sendQuery = async (query) => {
+    try {
+        const response = await api.post('/ai/chatbot', { query });
+        return response.data.response;
+    } catch (error) {
+        console.error("Chatbot Error:", error);
+        // Return a user-friendly error message if the service fails
+        return "System Notification: Connection to AI Module failed. Please try again later.";
+    }
+};
