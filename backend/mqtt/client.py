@@ -10,6 +10,7 @@ from datetime import datetime
 import paho.mqtt.client as mqtt
 from config import Config
 from models import get_db, SensorData
+from services.ai_prediction_service import AIPredictionService
 
 
 class MQTTHandler:
@@ -28,6 +29,7 @@ class MQTTHandler:
         self.latest_reading = None # Store latest parsed data for valid streams
         self.new_data_event = threading.Event() # Event to signal SSE threads
         self.app = None # Flask app instance for app context
+        self.actuators = {'fan': False, 'purifier': False} # Track actuator state
         
         # Set username and password if provided
         if Config.MQTT_USERNAME and Config.MQTT_PASSWORD:
@@ -98,13 +100,31 @@ class MQTTHandler:
             
             current_time = datetime.now()
             
+            # Prepare data for AI prediction
+            current_action = 'normal'
+            if self.actuators['fan']:
+                current_action = 'high_temp_turn_on_AC'
+            elif self.actuators['purifier']:
+                current_action = 'high_CO_turn_on_Air_Purifier'
+            
+            ai_input = {
+                'temperature_C': temperature,
+                'humidity_%': humidity,
+                'CO_ppm': co_level,
+                'action': current_action
+            }
+            
+            # Get AI Prediction
+            ai_result = AIPredictionService.prediction(ai_input)
+            
             # Notify listeners (SSE) - Store latest data for streaming
             self.latest_reading = {
                 'temperature': temperature,
                 'humidity': humidity,
                 'co_level': co_level,
                 'is_hazardous': is_hazardous,
-                'timestamp': current_time.isoformat()
+                'timestamp': current_time.isoformat(),
+                'ai_prediction': ai_result # Include AI result in stream
             }
             self.new_data_event.set() # Wake up waiting threads
             # Note: Don't clear immediately - let waiting threads consume it first
@@ -164,6 +184,16 @@ class MQTTHandler:
             command: Command string (e.g., "FAN_ON", "FAN_OFF")
         """
         try:
+            # Update local state tracking
+            if "FAN_ON" in command:
+                self.actuators['fan'] = True
+            elif "FAN_OFF" in command:
+                self.actuators['fan'] = False
+            elif "PURIFIER_ON" in command:
+                self.actuators['purifier'] = True
+            elif "PURIFIER_OFF" in command:
+                self.actuators['purifier'] = False
+                
             self.client.publish(Config.MQTT_TOPIC_CONTROL, command)
             print(f"📤 Published control command: {command}")
         except Exception as e:

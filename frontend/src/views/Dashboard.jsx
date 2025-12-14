@@ -1,19 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import LCDDisplay from '../components/dashboard/LCDDisplay';
 import ActuatorButton from '../components/dashboard/ActuatorButton';
 import VintagePanel from '../components/ui/VintagePanel';
 import ScreenOverlay from '../components/common/ScreenOverlay';
 import * as hardwareService from '../services/hardware.service';
-import { getPrediction } from '../services/ai.service';
 
-const Dashboard = ({ sensors, useRealApi }) => {
-    // Component-level state
+const Dashboard = ({ sensors, aiStatus, useRealApi }) => {
+    // Component-level state for actuators only
     const [actuators, setActuators] = useState({ fan: false, purifier: false, buzzer: false });
-    const [aiStatus, setAiStatus] = useState({
-        isAnomaly: false,
-        message: 'INITIALIZING...',
-        detail: 'Waiting for data...'
-    });
 
     const handleToggle = async (key) => {
         const newState = !actuators[key];
@@ -28,50 +22,6 @@ const Dashboard = ({ sensors, useRealApi }) => {
             }
         }
     };
-
-    // AI prediction on sensor/actuator changes
-    useEffect(() => {
-        if (!useRealApi || !sensors.temp) return;
-
-        const fetchAI = async () => {
-            try {
-                let currentAction = 'normal';
-                if (actuators.fan) currentAction = 'high_temp_turn_on_AC';
-                else if (actuators.purifier) currentAction = 'high_CO_turn_on_Air_Purifier';
-
-                const payload = {
-                    temperature_C: sensors.temp,
-                    "humidity_%": sensors.humidity,
-                    CO_ppm: sensors.co,
-                    action: currentAction
-                };
-
-                const result = await getPrediction(payload);
-
-                if (result.status === 'success') {
-                    const recAction = result.recommended_action;
-                    const predictedEnv = result.predicted_environment;
-
-                    let isAnomaly = false;
-                    let msg = "SYSTEM NORMAL";
-                    let detail = `Predicted: ${predictedEnv.temperature_C}°C, ${predictedEnv.CO_ppm} PPM`;
-
-                    if (recAction !== 'normal') {
-                        isAnomaly = true;
-                        msg = "AI ALERT: " + recAction.replace(/_/g, ' ').toUpperCase();
-                        detail = `Recommended: ${recAction}`;
-                    }
-
-                    setAiStatus({ isAnomaly, message: msg, detail });
-                }
-            } catch (err) {
-                console.error("AI Fetch Error:", err);
-            }
-        };
-
-        const timer = setTimeout(fetchAI, 500);
-        return () => clearTimeout(timer);
-    }, [sensors, actuators, useRealApi]);
 
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">

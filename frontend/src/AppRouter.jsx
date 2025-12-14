@@ -10,6 +10,7 @@ import MainLayout from './layouts/mainLayout';
 const AppRouter = ({
     sensors,
     history,
+    aiStatus,
     useRealApi
 }) => {
     return (
@@ -23,6 +24,7 @@ const AppRouter = ({
                 <MainLayout>
                     <Dashboard
                         sensors={sensors}
+                        aiStatus={aiStatus}
                         useRealApi={useRealApi}
                     />
                 </MainLayout>

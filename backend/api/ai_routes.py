@@ -6,7 +6,7 @@ Provides endpoints for AI-based analysis and predictions.
 
 from flask import jsonify, request
 from api import ai_bp
-from services.ai_service import AIService
+from services.ai_prediction_service import AIPredictionService
 from api.middleware import require_auth
 
 @ai_bp.route('/predict', methods=['POST'])
@@ -37,7 +37,7 @@ def predict():
              return jsonify({'error': f'Missing required fields: {", ".join(missing_fields)}'}), 400
              
         # Call the AI Service
-        result = AIService.predict(data)
+        result = AIPredictionService.prediction(data)
         
         if result.get('status') == 'error':
              return jsonify(result), 500
