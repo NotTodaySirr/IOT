@@ -2,46 +2,115 @@ import psycopg2
 import psycopg2.extras
 from ai.chatbot.chatbot_config import DB_URI
 
+def _convert_row_floats(row):
+    if not row: return None
+    for key, value in row.items():
+        if hasattr(value, 'combine'): # DateTime object
+            row[key] = str(value)
+        elif value is not None and not isinstance(value, str):
+            try:
+                row[key] = float(value)
+            except (ValueError, TypeError):
+                pass
+    return row
+
 def get_lastest_sensor_data():
     """
-    Connects to Supabase and fetches the latest temperature, humidity, 
-    and CO readings from the sensor_data table.
+    Fetches the latest reading in raw GMT+0 (UTC).
     """
-    
     connect = None
     try:
         connect = psycopg2.connect(DB_URI)
-        cursor = connect.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        cursor = connect.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         
+        # REMOVED: AT TIME ZONE 'Asia/Ho_Chi_Minh'
         query = """
-        SELECT temperature, humidity, co_level
-        FROM sensor_data
-        ORDER BY recorded_at DESC
-        LIMIT 1;
+            SELECT 
+                temperature, 
+                humidity, 
+                co_level, 
+                timestamp
+            FROM sensor_data 
+            ORDER BY timestamp DESC 
+            LIMIT 1;
         """
         
         cursor.execute(query)
-        row = cursor.fetchone()
-        
-        if row:
-            for key, value in row.items():
-                if hasattr(value, 'combine'):
-                    row[key] = str(value)
-                elif value is not None and not isinstance(value, str):
-                    try:
-                        row[key] = float(value)
-                    except (ValueError, TypeError):
-                        pass
-            
-            return row
-            
-        else:
-            return ("error", "No data found in the database.")
-        
+        return _convert_row_floats(cursor.fetchone()) or {"error": "No data found"}
     except Exception as e:
-        return ("error", str(e))
-    
+        return {"error": str(e)}
     finally:
         if connect:
             connect.close()
             
+def get_daily_average(date_str):
+    """
+    Calculates average for a specific day using raw GMT+0 timestamps.
+    The 'date_str' passed here must already be converted to GMT+0 by the AI.
+    """
+    connect = None
+    try:
+        connect = psycopg2.connect(DB_URI)
+        cursor = connect.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        
+        # REMOVED: AT TIME ZONE conversion
+        # ADDED: Comma before COUNT(*)
+        query = """
+            SELECT 
+                AVG(temperature) AS avg_temperature,
+                AVG(humidity) AS avg_humidity,
+                AVG(co_level) AS avg_co_level,
+                COUNT(*) AS data_points
+            FROM sensor_data
+            WHERE timestamp::date = %s;
+        """
+        
+        cursor.execute(query, (date_str,))
+        result = _convert_row_floats(cursor.fetchone())
+        # Check if result is None or empty (if no data found for that date)
+        if not result or result.get('avg_temperature') is None:
+             return {"error": f"No data found for date {date_str}"}
+             
+        result['date_queried'] = date_str
+        return result
+    except Exception as e:
+        return {"error": str(e)}
+    finally:
+        if connect:
+            connect.close()
+            
+def get_date_range_average(start_date_str, end_date_str):
+    """
+    Calculates average for a date range using raw GMT+0 timestamps.
+    The dates passed here must already be converted to GMT+0 by the AI.
+    """
+    connect = None
+    try:
+        connect = psycopg2.connect(DB_URI)
+        cursor = connect.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        
+        # REMOVED: AT TIME ZONE conversion
+        query = """
+            SELECT 
+                AVG(temperature) AS avg_temperature,
+                AVG(humidity) AS avg_humidity,
+                AVG(co_level) AS avg_co_level,
+                COUNT(*) AS data_points
+            FROM sensor_data
+            WHERE timestamp::date >= %s
+            AND timestamp::date <= %s;
+        """
+        
+        cursor.execute(query, (start_date_str, end_date_str))
+        result = _convert_row_floats(cursor.fetchone())
+        
+        if not result or result.get('avg_temperature') is None:
+             return {"error": f"No data found for range {start_date_str} to {end_date_str}"}
+
+        result['range'] = f"{start_date_str} to {end_date_str}"
+        return result
+    except Exception as e:
+        return {"error": str(e)}
+    finally:
+        if connect:
+            connect.close()
