@@ -17,8 +17,7 @@ class MQTTHandler:
     """Manages MQTT connection and message handling."""
     
     def __init__(self):
-        # Append random suffix to avoid conflicts on public broker
-        client_id = f"{Config.MQTT_CLIENT_ID}_{random.randint(1000, 9999)}"
+        client_id = Config.MQTT_CLIENT_ID
         self.client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1, client_id=client_id)
         self.client.on_connect = self.on_connect
         self.client.on_message = self.on_message
