@@ -3,8 +3,8 @@ import joblib
 import numpy as np
 import pandas as pd
 
-class  AIPredictionService:
-    # Class-level variables to hold models and scalers (Lazy Loading)
+class AIPredictionService:
+    # Class-level variables to hold models and scalers
     _reg_model = None
     _cls_model = None
     _scaler_X = None
@@ -27,7 +27,6 @@ class  AIPredictionService:
                 cls._reg_model = joblib.load(os.path.join(cls.model_dir, 'ecs_deep_regressor.pkl'))
                 cls._cls_model = joblib.load(os.path.join(cls.model_dir, 'ecs_deep_classifier.pkl'))
                 
-                # These are the "Restored Artifacts" we generated with setup_ai.py
                 cls._scaler_X = joblib.load(os.path.join(cls.model_dir, 'scaler_X.pkl'))
                 cls._scaler_y = joblib.load(os.path.join(cls.model_dir, 'scaler_y_reg.pkl'))
                 cls._label_encoder = joblib.load(os.path.join(cls.model_dir, 'label_encoder.pkl'))
