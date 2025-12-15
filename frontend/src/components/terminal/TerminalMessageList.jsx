@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import TerminalLine from './TerminalLine';
+import TypingIndicator from './TypingIndicator';
 
 /**
  * TerminalMessageList - Renders the scrollable list of terminal messages.
@@ -19,6 +20,11 @@ const TerminalMessageList = ({ messages }) => {
                 // Support both string and object message formats
                 const content = typeof msg === 'string' ? msg : msg.content;
                 const role = typeof msg === 'string' ? 'system' : msg.role;
+
+                if (content === '...') {
+                    return <TypingIndicator key={i} />;
+                }
+
                 return <TerminalLine key={i} content={content} role={role} />;
             })}
             <div ref={endRef} />

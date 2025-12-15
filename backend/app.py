@@ -3,6 +3,7 @@ Main application entry point for the ECS Backend.
 Initializes Flask server, Supabase connection, and MQTT client.
 """
 
+import os
 from flask import Flask
 from flask_cors import CORS
 from config import Config
@@ -39,18 +40,23 @@ def main():
     # Validate configuration
     config_valid = Config.validate()
     
-    # Initialize MQTT
-    print("\n[2/3] Initializing MQTT client...")
-    mqtt_handler = get_mqtt_handler()
-    mqtt_handler.connect()
-    mqtt_handler.start_loop()
-    
-    # Create and configure Flask app
-    print("\n[3/3] Starting Flask server...")
+    # Create and configure Flask app first
+    print("\n[2/3] Starting Flask server...")
     app = create_app()
     
-    # Give MQTT handler access to Flask app context for database operations
-    mqtt_handler.app = app
+    # Initialize MQTT
+    # Only run in the reloader child process (or if not using reloader/debug)
+    # This prevents running two MQTT clients (one in parent, one in child) when debug=True
+    mqtt_handler = get_mqtt_handler()
+    
+    if not Config.DEBUG or os.environ.get("WERKZEUG_RUN_MAIN") == "true":
+        print("\n[3/3] Initializing MQTT client...")
+        mqtt_handler.connect()
+        mqtt_handler.start_loop()
+        # Give MQTT handler access to Flask app context
+        mqtt_handler.app = app
+    else:
+        print("\n[3/3] Skipping MQTT init in reloader parent process")
     
     print("\n" + "=" * 60)
     print(f"✓ Server running on http://localhost:{Config.PORT}")
@@ -70,7 +76,9 @@ def main():
         )
     except KeyboardInterrupt:
         print("\n\nShutting down gracefully...")
-        mqtt_handler.stop_loop()
+        # Only stop if it was started
+        if not Config.DEBUG or os.environ.get("WERKZEUG_RUN_MAIN") == "true":
+            mqtt_handler.stop_loop()
         close_db()
         print("✓ Server stopped")
 

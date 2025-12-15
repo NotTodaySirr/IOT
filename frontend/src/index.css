@@ -68,4 +68,17 @@
   .animate-slide-in-right {
     animation: slide-in-right 0.3s ease-out;
   }
+
+  @keyframes typing-bounce {
+    0%, 60%, 100% {
+      transform: translateY(0);
+    }
+    30% {
+      transform: translateY(-4px);
+    }
+  }
+
+  .animate-typing-bounce {
+    animation: typing-bounce 1.4s infinite ease-in-out both;
+  }
 }

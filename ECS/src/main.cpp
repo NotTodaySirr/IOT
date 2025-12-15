@@ -13,7 +13,7 @@
 
 const char* WIFI_SSID     = "Wokwi-GUEST";
 const char* WIFI_PASSWORD = "";
-const char* MQTT_SERVER   = "broker.hivemq.com";
+const char* MQTT_SERVER   = "52.57.8.54";  // broker.hivemq.com (direct IP for Wokwi DNS bypass)
 const int   MQTT_PORT     = 1883;
 
 
