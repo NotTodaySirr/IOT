@@ -1,61 +1,105 @@
 import google.generativeai as genai
 from google.generativeai.types import FunctionDeclaration, Tool
 from ai.chatbot.chatbot_config import GEMINI_API_KEY, DB_URI
-from ai.chatbot.get_data_fromdb import get_lastest_sensor_data, get_daily_average, get_date_range_average
+from ai.chatbot.get_data_fromdb import get_latest_sensor_data, get_daily_average, get_date_range_average
+from datetime import datetime, timedelta
 
 genai.configure(api_key=GEMINI_API_KEY)
 
-tools_list = [get_lastest_sensor_data, get_daily_average, get_date_range_average]
-
-model = genai.GenerativeModel (
-    model_name = "gemini-2.0-flash",
-    tools = tools_list,
-    system_instruction = """
-    You are the AI Operator for a Smart Home IoT System.
-        
-        CONTEXT:
-        - Current Date (User's Local Time): {today_str}.
-        - The Database stores timestamps in UTC (GMT+0).
-        - **Timestamp Format:** 'YYYY-MM-DD HH:MM:SS.xxxxxx+00' (e.g., '2025-12-11 16:49:00.90875+00').
-        - When analyzing "How long ago?" or "Recency", use this UTC timestamp format.
-        - When a user asks about a date (e.g., "yesterday"), calculate the date in GMT+0 before calling tools.
-        
-        EXAMPLES:
-        - Query: "Yesterday" -> Calculate {yesterday_str} -> Call 'get_daily_average("{yesterday_str}")'
-        - Query: "Last 3 days" -> Calculate range {three_days_ago_str} to {today_str} -> Call 'get_date_range_average("{three_days_ago_str}", "{today_str}")'
-        - Query: "Last week" -> Calculate range (Today - 7 days) to Today.
-        
-        AVAILABLE TOOLS:
-        1. 'get_latest_sensor_data': Use for "now", "current", "right now" queries.
-        2. 'get_daily_average': Use for specific single days (e.g., "yesterday", "on Dec 12th").
-        3. 'get_date_range_average': Use for spans of time (e.g., "last week", "from Monday to Wednesday").
-        
-        DATA ANALYSIS RULES:
-        - CO Level > 50 ppm: DANGER (Nguy hiểm) -> Warn the user immediately.
-        - Temperature > 35°C: Hot (Nóng).
-        - Humidity > 80%: Humid (Ẩm ướt).
-        
-        RESPONSE GUIDELINES:
-        - Answer in Vietnamese.
-        - Be concise and professional.
-        - If the database returns 'None' or no data, politely inform the user data is missing for that time.
-        
-    TONE:
-    - Professional, concise, and helpful.
-    """
-)
+tools_list = [get_latest_sensor_data, get_daily_average, get_date_range_average]
 
 def ask_iot_ai(user_query):
     """
-    Processes the user's question, automatically calls the database tool if needed,
-    and returns the natural language response.
+    Processes the user's question and logs tool usage.
     """
     try:
-        chat = model.start_chat(enable_automatic_function_calling=True)
+        # 1. Calculate Dynamic Dates (Crucial for "Yesterday"/"Last week")
+        today = datetime.now()
+        today_str = today.strftime("%Y-%m-%d")
+        yesterday_str = (today - timedelta(days=1)).strftime("%Y-%m-%d")
+        three_days_ago_str = (today - timedelta(days=3)).strftime("%Y-%m-%d")
+
+        # 2. Dynamic System Instruction
+        # We merged the "sensor" rule into Tool #1 for clarity.
+        sys_instruction = f"""
+        You are the AI Operator for a Smart Home IoT System.
         
+        CONTEXT:
+        - Current Date (Vietnam Time): {today_str}
+        - The Database tools handle timezone conversion automatically.
+        
+        YOUR RESPONSIBILITY:
+        1. Identify if the user needs data.
+        2. OUTPUT THE FUNCTION CALL ONLY. Do not speak first.
+        
+        --- SPECIFIC SCENARIOS ---
+        
+        SCENARIO 1: SAFETY ANALYSIS
+        - User asks: "Có an toàn để ngủ không?", "Không khí thế nào?", "Có nguy hiểm không?"
+        - Action: Call `get_latest_sensor_data()`.
+        - Analysis Rule:
+             * IF CO_Level > 50 ppm: RESPONSE MUST START WITH "CẢNH BÁO: NGUY HIỂM!". Advise opening windows immediately.
+             * IF CO_Level <= 50 ppm: Respond "Không khí an toàn. Bạn có thể ngủ ngon."
+        
+        SCENARIO 2: HISTORY / TRENDS
+        - User asks: "Hôm qua...", "Tuần trước..."
+        - Action: Calculate date relative to {today_str} and call `get_daily_average` or `get_date_range_average`.
+        
+        SCENARIO 3: GENERAL QUESTIONS
+        - User asks general questions about temperature, humidity, or CO levels.
+        - Action: Use the appropriate tool to fetch data.
+        
+        SCENARIO 4: OUT OF SCOPE
+        - User asks non-IoT questions.
+        - Action: Politely decline and state you only handle Smart Home IoT queries.
+        
+        EXAMPLES:
+        - User: "Giờ ngủ được không?"
+          Action: Call `get_latest_sensor_data()`
+        
+        - User: "Nhiệt độ hôm qua?"
+          Action: Call `get_daily_average("{yesterday_str}")`
+        
+        RESPONSE RULES:
+        - Answer in Vietnamese.
+        - Be concise.
+        - If data is missing, apologize politely.
+        """
+
+        # 3. Initialize Model (Must be inside function to get fresh dates)
+        model = genai.GenerativeModel(
+            model_name="gemini-2.0-flash", # Or gemini-1.5-flash
+            tools=tools_list,
+            system_instruction=sys_instruction
+        )
+        
+        # 4. Start Chat
+        chat = model.start_chat(enable_automatic_function_calling=True)
         response = chat.send_message(user_query)
+        
+        # --- 5. ADDED LOGGING: Check if tools were called ---
+        # We iterate through the chat history to find function calls
+        print(f"\n--- DEBUG LOG: '{user_query}' ---")
+        tool_called = False
+        for part in chat.history:
+            for content in part.parts:
+                if content.function_call:
+                    tool_called = True
+                    fname = content.function_call.name
+                    # Convert MapComposite to standard Dict for readability
+                    fargs = dict(content.function_call.args)
+                    print(f"🔧 AI CALLED TOOL: {fname}")
+                    print(f"   ARGS: {fargs}")
+                
+                if content.function_response:
+                    print(f"🔙 TOOL RETURNED: {content.function_response.response}")
+
+        if not tool_called:
+            print("ℹ️  NO TOOL CALLED (Pure text response)")
+        print("------------------------------------------\n")
         
         return response.text
     
     except Exception as e:
+        print(f"❌ AI ERROR: {e}")
         return f"Lỗi hệ thống AI: {str(e)}"

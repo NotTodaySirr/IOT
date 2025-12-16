@@ -72,7 +72,7 @@ def main():
         app.run(
             host='0.0.0.0',
             port=Config.PORT,
-            debug=Config.DEBUG
+            debug=Config.DEBUG,
         )
     except KeyboardInterrupt:
         print("\n\nShutting down gracefully...")
