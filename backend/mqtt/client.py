@@ -79,7 +79,7 @@ class MQTTHandler:
            - CO level is hazardous (> 50 ppm) [High Frequency Logging]
            - OR it has been > 60 seconds since last save [Normal Logging]
         """
-        db = None
+
         try:
             data = json.loads(payload)
             
@@ -102,7 +102,7 @@ class MQTTHandler:
             # Prepare data for AI prediction
             current_action = 'normal'
             if self.actuators['fan']:
-                current_action = ['high_temp_turn_on_AC', 'high_humidity_turn_on_Dehumidifier', 'low_temp_turn_off_AC', 'low_humidity_turn_off_Dehumidifier']
+                current_action = 'high_temp_turn_on_AC'
             elif self.actuators['purifier']:
                 current_action = 'high_CO_turn_on_Air_Purifier'
             
@@ -123,7 +123,8 @@ class MQTTHandler:
                 'co_level': co_level,
                 'is_hazardous': is_hazardous,
                 'timestamp': current_time.isoformat(),
-                'ai_prediction': ai_result # Include AI result in stream
+                'ai_prediction': ai_result, # Include AI result in stream
+                'device_id': data.get('device_id')  # Pass device_id to frontend
             }
             self.new_data_event.set() # Wake up waiting threads
             # Note: Don't clear immediately - let waiting threads consume it first
@@ -145,42 +146,51 @@ class MQTTHandler:
                     print(f"✓ Normal Status - Heartbeat Save (Interval: {time_diff:.1f}s)")
                 
             # --- 3. DATABASE SAVE ---
+            # --- 3. DATABASE SAVE ---
             if should_save:
                 if self.app:
                     with self.app.app_context():
-                        db = get_db()
-                        
-                        # Extract device_id from payload (ESP32 MAC address)
-                        device_id = data.get('device_id')
-                        user_id = None
-                        
-                        if device_id:
-                            # Look up user_id from DeviceState table
-                            device_state = db.query(DeviceState).filter(
-                                DeviceState.device_id == device_id,
-                                DeviceState.is_active == True
-                            ).first()
+                        try:
+                            db = get_db()
                             
-                            if device_state:
-                                user_id = device_state.user_id
-                                print(f"✓ Device {device_id} linked to user {user_id}")
+                            # Extract device_id from payload (ESP32 MAC address)
+                            device_id = data.get('device_id')
+                            user_id = None
+                            
+                            if device_id:
+                                # Look up user_id from DeviceState table
+                                device_state = db.query(DeviceState).filter(
+                                    DeviceState.device_id == device_id,
+                                    DeviceState.is_active == True
+                                ).first()
+                                
+                                if device_state:
+                                    user_id = device_state.user_id
+                                    print(f"✓ Device {device_id} linked to user {user_id}")
+                                else:
+                                    print(f"⚠️  Device {device_id} not registered, saving without user_id")
                             else:
-                                print(f"⚠️  Device {device_id} not registered, saving without user_id")
-                        else:
-                            print("⚠️  No device_id in payload, saving without user_id")
-                        
-                        sensor_reading = SensorData(
-                            temperature=temperature,
-                            humidity=humidity,
-                            co_level=co_level,
-                            user_id=user_id
-                        )
-                        db.add(sensor_reading)
-                        db.commit()
-                        db.close()
-                        
-                        self.last_save_time = current_time
-                        print(f"✓ Saved to DB: Temp={temperature}, Hum={humidity}, CO={co_level}, user_id={user_id}")
+                                print("⚠️  No device_id in payload, saving without user_id")
+                            
+                            sensor_reading = SensorData(
+                                temperature=temperature,
+                                humidity=humidity,
+                                co_level=co_level,
+                                user_id=user_id
+                            )
+                            db.add(sensor_reading)
+                            db.commit()
+                            
+                            self.last_save_time = current_time
+                            print(f"✓ Saved to DB: Temp={temperature}, Hum={humidity}, CO={co_level}, user_id={user_id}")
+                            
+                        except Exception as e:
+                            print(f"✗ Error saving to database: {e}")
+                            if 'db' in locals() and db:
+                                db.rollback()
+                        finally:
+                            if 'db' in locals() and db:
+                                db.close()
                 else:
                     print("⚠️  No Flask app context available, skipping database save")
             else:
@@ -189,22 +199,16 @@ class MQTTHandler:
                 
         except json.JSONDecodeError as e:
             print(f"✗ Invalid JSON in sensor data: {e}")
-            if db:
-                db.rollback()
         except Exception as e:
             print(f"✗ Error handling sensor upload: {e}")
-            if db:
-                db.rollback()
-        finally:
-            if db:
-                db.close()
     
-    def publish_control_command(self, command: str):
+    def publish_control_command(self, command: str, device_id: str = None):
         """
         Publish a control command to the ESP32.
         
         Args:
             command: Command string (e.g., "FAN_ON", "FAN_OFF")
+            device_id: Device MAC address (e.g., "AA:BB:CC:DD:EE:FF")
         """
         try:
             # Update local state tracking
@@ -216,9 +220,16 @@ class MQTTHandler:
                 self.actuators['purifier'] = True
             elif "PURIFIER_OFF" in command:
                 self.actuators['purifier'] = False
-                
-            self.client.publish(Config.MQTT_TOPIC_CONTROL, command)
-            print(f"📤 Published control command: {command}")
+            
+            # Publish to device-specific topic if device_id provided
+            if device_id:
+                topic = f"{Config.MQTT_TOPIC_CONTROL}/{device_id}"
+                self.client.publish(topic, command)
+                print(f"📤 Published to {topic}: {command}")
+            else:
+                # Fallback to broadcast topic (not recommended)
+                self.client.publish(Config.MQTT_TOPIC_CONTROL, command)
+                print(f"📤 Published control command: {command}")
         except Exception as e:
             print(f"✗ Failed to publish control command: {e}")
     

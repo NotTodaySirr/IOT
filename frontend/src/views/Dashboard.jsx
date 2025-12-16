@@ -6,21 +6,19 @@ import ScreenOverlay from '../components/common/ScreenOverlay';
 import * as hardwareService from '../services/hardware.service';
 import AIDiagnosticPanel from '../components/dashboard/AIDiagnosticPanel';
 
-const Dashboard = ({ sensors, aiStatus, prediction, useRealApi }) => {
+const Dashboard = ({ sensors, prediction }) => {
     // Component-level state for actuators only
-    const [actuators, setActuators] = useState({ fan: false, purifier: false, buzzer: false });
+    const [actuators, setActuators] = useState({ fan: false, purifier: false });
 
     const handleToggle = async (key) => {
         const newState = !actuators[key];
         setActuators(prev => ({ ...prev, [key]: newState }));
 
-        if (useRealApi) {
-            try {
-                await hardwareService.toggleActuator(key, newState);
-            } catch (error) {
-                console.error('Failed to toggle actuator:', error);
-                setActuators(prev => ({ ...prev, [key]: !newState }));
-            }
+        try {
+            await hardwareService.toggleActuator(key, newState, sensors.device_id);
+        } catch (error) {
+            console.error('Failed to toggle actuator:', error);
+            setActuators(prev => ({ ...prev, [key]: !newState }));
         }
     };
 
@@ -45,11 +43,6 @@ const Dashboard = ({ sensors, aiStatus, prediction, useRealApi }) => {
                         label="AIR PURIFIER"
                         active={actuators.purifier}
                         onClick={() => handleToggle('purifier')}
-                    />
-                    <ActuatorButton
-                        label="ALARM BUZZER"
-                        active={actuators.buzzer}
-                        onClick={() => handleToggle('buzzer')}
                     />
                 </div>
 

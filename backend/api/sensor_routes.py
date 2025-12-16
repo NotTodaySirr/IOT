@@ -148,6 +148,7 @@ def control_device():
         
         device = data.get('device', '').lower()
         action = data.get('action', '').lower()
+        device_id = data.get('device_id')  # Extract device_id
         
         # Validate input
         valid_devices = ['fan', 'purifier']
@@ -162,15 +163,16 @@ def control_device():
         # Build MQTT command
         command = f"{device.upper()}_{action.upper()}"
         
-        # Publish to MQTT
+        # Publish to MQTT with device_id
         mqtt_handler = get_mqtt_handler()
-        mqtt_handler.publish_control_command(command)
+        mqtt_handler.publish_control_command(command, device_id)
         
         return jsonify({
             'success': True,
             'message': f'Command sent: {command}',
             'device': device,
-            'action': action
+            'action': action,
+            'device_id': device_id
         }), 200
         
     except Exception as e:

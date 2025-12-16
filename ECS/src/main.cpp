@@ -54,6 +54,11 @@ const long blinkInterval = 500;   // Blink LED every 500ms
 bool redLedState = LOW;           // Track blink state
 bool isGasDanger = false;         // Persist danger state between loops
 
+// Manual Override State
+bool manualMode = false;          // Track if manual control is active
+bool manualFan1State = LOW;
+bool manualFan2State = LOW;
+
 // Helper Functions
 float calculatePPM(int analogValue) {
   float voltage = analogValue * (3.3 / 4095.0);
@@ -80,14 +85,28 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
   }
   message[length] = '\0';
   
+  Serial.print("[MQTT] Command received: ");
+  Serial.println(message);
+  
+  // Enable manual mode and apply the command
+  manualMode = true;
+  
   if (strcmp(message, "FAN_ON") == 0) {
+    manualFan1State = HIGH;
     digitalWrite(RELAY_FAN1_PIN, HIGH);
+    Serial.println("[RELAY] Fan1 -> ON");
   } else if (strcmp(message, "FAN_OFF") == 0) {
+    manualFan1State = LOW;
     digitalWrite(RELAY_FAN1_PIN, LOW);
+    Serial.println("[RELAY] Fan1 -> OFF");
   } else if (strcmp(message, "PURIFIER_ON") == 0) {
+    manualFan2State = HIGH;
     digitalWrite(RELAY_FAN2_PIN, HIGH);
+    Serial.println("[RELAY] Fan2 -> ON");
   } else if (strcmp(message, "PURIFIER_OFF") == 0) {
+    manualFan2State = LOW;
     digitalWrite(RELAY_FAN2_PIN, LOW);
+    Serial.println("[RELAY] Fan2 -> OFF");
   }
 }
 
@@ -140,7 +159,11 @@ void init_mqtt() {
   int retries = 0;
   while (!client.connected() && retries < 5) {
     if (client.connect("ESP32_Room_Monitor")) {
-      client.subscribe("ecs/control");
+      // Subscribe to device-specific control topic
+      String controlTopic = "ecs/control/" + WiFi.macAddress();
+      client.subscribe(controlTopic.c_str());
+      Serial.print("[MQTT] Subscribed to: ");
+      Serial.println(controlTopic);
       client.publish("room/status", "online");
     } else {
       delay(1000);
@@ -183,7 +206,8 @@ void loop() {
     // Basic reconnect if needed
     if (WiFi.status() == WL_CONNECTED) {
        if (client.connect("ESP32_Room_Monitor")) {
-          client.subscribe("ecs/control");
+          String controlTopic = "ecs/control/" + WiFi.macAddress();
+          client.subscribe(controlTopic.c_str());
        }
     }
   }
@@ -204,17 +228,19 @@ void loop() {
       bool highTemp = (temp > 35.0);
       isGasDanger = (coPPM > 50.0); // Update global flag for the blink task
 
-      // Actuators (Fans/Buzzer)
-      digitalWrite(RELAY_FAN1_PIN, highTemp ? HIGH : LOW);
-
+      // Actuators (Fans/Buzzer) - Only apply if NOT in manual mode
+      if (!manualMode) {
+        digitalWrite(RELAY_FAN1_PIN, highTemp ? HIGH : LOW);
+        digitalWrite(RELAY_FAN2_PIN, isGasDanger ? HIGH : LOW);
+      }
+      
+      // Buzzer - Always auto-controlled for safety
       if (isGasDanger) {
-        digitalWrite(RELAY_FAN2_PIN, HIGH);
         ledcWriteTone(LEDC_CHANNEL, 1000);
         #ifndef BYPASS_NETWORKING
         client.publish("room/alert", "HIGH CO DETECTED!");
         #endif
       } else {
-        digitalWrite(RELAY_FAN2_PIN, LOW);
         ledcWriteTone(LEDC_CHANNEL, 0);
       }
 
@@ -250,9 +276,12 @@ void loop() {
   // Publish to 'ecs/upload'
   client.publish("ecs/upload", payload.c_str());
   #endif
+    }
+  }
   
   Serial.println("[LOOP] Loop iteration complete");
   delay(1000);
 }
+
 
 

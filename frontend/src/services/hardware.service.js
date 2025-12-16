@@ -33,14 +33,16 @@ export const getActuatorState = async () => {
  * 
  * @param {string} id - Actuator ID (e.g., 'fan', 'heater', 'buzzer')
  * @param {boolean} state - Desired state (true = ON, false = OFF)
+ * @param {string} deviceId - Device MAC address (e.g., 'AA:BB:CC:DD:EE:FF')
  * @returns {Promise<void>}
  */
-export const toggleActuator = async (id, state) => {
+export const toggleActuator = async (id, state, deviceId) => {
     const device = id;
     const action = state ? 'on' : 'off';
 
     return await api.post('/control', {
         device,
-        action
+        action,
+        device_id: deviceId
     });
 };

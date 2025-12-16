@@ -30,12 +30,14 @@ export const useSensorStream = () => {
                 const newTemp = data.temperature;
                 const newCo = data.co_level;
                 const newHumid = data.humidity;
+                const deviceId = data.device_id; // Extract device_id
 
                 // Update Sensors State
                 setSensors({
                     temp: newTemp,
                     humidity: newHumid,
-                    co: newCo
+                    co: newCo,
+                    device_id: deviceId
                 });
 
                 // Update AI Status from streamed prediction

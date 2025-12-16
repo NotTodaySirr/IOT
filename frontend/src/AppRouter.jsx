@@ -11,8 +11,7 @@ const AppRouter = ({
     sensors,
     history,
     aiStatus,
-    prediction,
-    useRealApi
+    prediction
 }) => {
     return (
         <Routes>
@@ -27,7 +26,6 @@ const AppRouter = ({
                         sensors={sensors}
                         aiStatus={aiStatus}
                         prediction={prediction}
-                        useRealApi={useRealApi}
                     />
                 </MainLayout>
             } />
