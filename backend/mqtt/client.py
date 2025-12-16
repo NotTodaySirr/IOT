@@ -9,7 +9,7 @@ import random
 from datetime import datetime
 import paho.mqtt.client as mqtt
 from config import Config
-from models import get_db, SensorData
+from models import get_db, SensorData, DeviceState
 from services.ai_prediction_service import AIPredictionService
 
 
@@ -145,18 +145,38 @@ class MQTTHandler:
                 if self.app:
                     with self.app.app_context():
                         db = get_db()
+                        
+                        # Extract device_id from payload (ESP32 MAC address)
+                        device_id = data.get('device_id')
+                        user_id = None
+                        
+                        if device_id:
+                            # Look up user_id from DeviceState table
+                            device_state = db.query(DeviceState).filter(
+                                DeviceState.device_id == device_id,
+                                DeviceState.is_active == True
+                            ).first()
+                            
+                            if device_state:
+                                user_id = device_state.user_id
+                                print(f"✓ Device {device_id} linked to user {user_id}")
+                            else:
+                                print(f"⚠️  Device {device_id} not registered, saving without user_id")
+                        else:
+                            print("⚠️  No device_id in payload, saving without user_id")
+                        
                         sensor_reading = SensorData(
                             temperature=temperature,
                             humidity=humidity,
-                            co_level=co_level
-                            # Note: is_hazardous is not in the DB model, only used for streaming
+                            co_level=co_level,
+                            user_id=user_id
                         )
                         db.add(sensor_reading)
                         db.commit()
                         db.close()
                         
                         self.last_save_time = current_time
-                        print(f"✓ Saved to DB: Temp={temperature}, Hum={humidity}, CO={co_level}")
+                        print(f"✓ Saved to DB: Temp={temperature}, Hum={humidity}, CO={co_level}, user_id={user_id}")
                 else:
                     print("⚠️  No Flask app context available, skipping database save")
             else:

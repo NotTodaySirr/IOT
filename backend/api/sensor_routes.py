@@ -5,7 +5,7 @@ Provides endpoints for sensor data retrieval and device control.
 
 from flask import jsonify, request, Response, stream_with_context
 from api import sensor_bp
-from models import get_db, SensorData
+from models import get_db, SensorData, DeviceState
 from mqtt.client import get_mqtt_handler
 from api.middleware import require_auth
 import json
@@ -201,6 +201,123 @@ def get_current_readings():
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+    finally:
+        if db:
+            db.close()
+
+
+@sensor_bp.route('/register-device', methods=['POST'])
+@require_auth
+def register_device():
+    """
+    Register a device to a user account.
+    
+    This endpoint is used by developers via Postman to link an ESP32 device
+    to the authenticated user account.
+    
+    -------------------- POSTMAN USAGE --------------------
+    
+    Endpoint: POST /api/register-device
+    Headers:
+        Authorization: Bearer <supabase_jwt_token>
+        Content-Type: application/json
+    
+    Request Body:
+        {
+            "device_id": "AA:BB:CC:DD:EE:FF"  // Required: ESP32 MAC Address
+        }
+    
+    Success Response (201):
+        {
+            "success": true,
+            "message": "Device registered successfully",
+            "device_id": "AA:BB:CC:DD:EE:FF",
+            "user_id": "uuid-string"
+        }
+    
+    --------------------------------------------------------
+    """
+    db = None
+    try:
+        data = request.get_json()
+        
+        # Validate request body exists
+        if not data:
+            return jsonify({
+                'success': False,
+                'error': 'Request body must be JSON'
+            }), 400
+        
+        device_id = data.get('device_id')
+        
+        # Get user_id from the authenticated token (set by middleware)
+        from flask import g
+        user_id = g.user.get('id')
+        
+        # Validate required fields
+        if not device_id:
+            return jsonify({
+                'success': False,
+                'error': 'Missing required field: device_id'
+            }), 400
+            
+        if not user_id:
+            return jsonify({
+                'success': False,
+                'error': 'Authenticated user ID not found'
+            }), 401
+        
+        db = get_db()
+        
+        # Check if device is already registered
+        existing = db.query(DeviceState).filter(
+            DeviceState.device_id == device_id
+        ).first()
+        
+        if existing:
+            # If it's already registered to THIS user, just return success
+            if str(existing.user_id) == str(user_id):
+                 return jsonify({
+                    'success': True,
+                    'message': 'Device already registered to you',
+                    'device_id': device_id,
+                    'user_id': user_id
+                }), 200
+            
+            return jsonify({
+                'success': False,
+                'error': 'Device already registered to another user',
+                # Security: Don't reveal who owns it
+            }), 400
+        
+        # Create new device registration
+        new_device = DeviceState(
+            device_id=device_id,
+            user_id=user_id,
+            is_active=True
+        )
+        db.add(new_device)
+        db.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Device registered successfully',
+            'device_id': device_id,
+            'user_id': user_id
+        }), 201
+        
+    except ValueError as e:
+        return jsonify({
+            'success': False,
+            'error': f'Invalid data format: {str(e)}'
+        }), 400
+    except Exception as e:
+        if db:
+            db.rollback()
+        return jsonify({
+            'success': False,
+            'error': f'Database error: {str(e)}'
+        }), 500
     finally:
         if db:
             db.close()

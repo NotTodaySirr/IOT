@@ -243,6 +243,8 @@ void init_wifi() {
   }
 
   Serial.println("\n[WIFI] Connected");
+  Serial.print("[WIFI] MAC Address: ");
+  Serial.println(WiFi.macAddress());
   lcd1.setCursor(0, 1); lcd1.print("WiFi: Connected  ");
 
   configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
@@ -423,7 +425,10 @@ void loop() {
 
   #ifndef BYPASS_NETWORKING
   // Construct JSON Payload manually to avoid extra dependencies
-  String payload = "{\"temperature\":";
+  // Include device_id (MAC address) for user-device linking in backend
+  String payload = "{\"device_id\":\"";
+  payload += WiFi.macAddress();  // e.g., "AA:BB:CC:DD:EE:FF"
+  payload += "\",\"temperature\":";
   payload += tempStr;
   payload += ",\"humidity\":";
   payload += humStr;
