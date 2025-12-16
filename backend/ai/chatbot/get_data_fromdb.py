@@ -14,7 +14,7 @@ def _convert_row_floats(row):
                 pass
     return row
 
-def get_lastest_sensor_data():
+def get_latest_sensor_data():
     """
     Fetches the latest reading in raw GMT+0 (UTC).
     """
@@ -23,13 +23,12 @@ def get_lastest_sensor_data():
         connect = psycopg2.connect(DB_URI)
         cursor = connect.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         
-        # REMOVED: AT TIME ZONE 'Asia/Ho_Chi_Minh'
         query = """
             SELECT 
                 temperature, 
                 humidity, 
                 co_level, 
-                timestamp
+                recorded_at AT TIME ZONE 'Asia/Ho_Chi_Minh' AS timestamp
             FROM sensor_data 
             ORDER BY timestamp DESC 
             LIMIT 1;
@@ -48,6 +47,7 @@ def get_daily_average(date_str):
     Calculates average for a specific day using raw GMT+0 timestamps.
     The 'date_str' passed here must already be converted to GMT+0 by the AI.
     """
+    print(f"\n[DB TOOL] 'get_daily_average' triggered with date: '{date_str}'")
     connect = None
     try:
         connect = psycopg2.connect(DB_URI)
@@ -62,7 +62,7 @@ def get_daily_average(date_str):
                 AVG(co_level) AS avg_co_level,
                 COUNT(*) AS data_points
             FROM sensor_data
-            WHERE timestamp::date = %s;
+            WHERE (recorded_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date = %s;
         """
         
         cursor.execute(query, (date_str,))
@@ -74,6 +74,7 @@ def get_daily_average(date_str):
         result['date_queried'] = date_str
         return result
     except Exception as e:
+        print(f"[DB TOOL] ❌ CRITICAL ERROR: {str(e)}")
         return {"error": str(e)}
     finally:
         if connect:
@@ -97,8 +98,8 @@ def get_date_range_average(start_date_str, end_date_str):
                 AVG(co_level) AS avg_co_level,
                 COUNT(*) AS data_points
             FROM sensor_data
-            WHERE timestamp::date >= %s
-            AND timestamp::date <= %s;
+            WHERE (recorded_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date >= %s
+            AND   (recorded_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date <= %s;
         """
         
         cursor.execute(query, (start_date_str, end_date_str))

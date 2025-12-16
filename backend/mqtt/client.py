@@ -17,7 +17,7 @@ class MQTTHandler:
     """Manages MQTT connection and message handling."""
     
     def __init__(self):
-        client_id = Config.MQTT_CLIENT_ID
+        client_id = f"{Config.MQTT_CLIENT_ID}.{random.randint(0, 9999)}"
         self.client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1, client_id=client_id)
         self.client.on_connect = self.on_connect
         self.client.on_message = self.on_message
@@ -102,7 +102,7 @@ class MQTTHandler:
             # Prepare data for AI prediction
             current_action = 'normal'
             if self.actuators['fan']:
-                current_action = 'high_temp_turn_on_AC'
+                current_action = ['high_temp_turn_on_AC', 'high_humidity_turn_on_Dehumidifier', 'low_temp_turn_off_AC', 'low_humidity_turn_off_Dehumidifier']
             elif self.actuators['purifier']:
                 current_action = 'high_CO_turn_on_Air_Purifier'
             
@@ -128,17 +128,21 @@ class MQTTHandler:
             self.new_data_event.set() # Wake up waiting threads
             # Note: Don't clear immediately - let waiting threads consume it first
             
-            # --- 2. THRoTTLING LOGIC ---
+            # --- 2. THROTTLING LOGIC ---
             should_save = False
+            time_diff = (current_time - self.last_save_time).total_seconds()
             
-            # Save if hazardous (High Frequency Mode)
+            # CASE A: Anomaly - Save every 1 second
             if is_hazardous:
-                should_save = True
-                print(f"⚠️  HAZARD DETECTED (CO={co_level}) - Saving immediately")
-                
-            # OR Save if minute passed (Normal Mode)
-            elif (current_time - self.last_save_time).total_seconds() >= 60:
-                should_save = True
+                if time_diff >= 1.0: 
+                    should_save = True
+                    print(f"⚠️  HAZARD DETECTED (CO={co_level}) - Saving (Interval: {time_diff:.1f}s)")
+            
+            # CASE B: Normal - Save every 60 seconds
+            else:
+                if time_diff >= 60.0:
+                    should_save = True
+                    print(f"✓ Normal Status - Heartbeat Save (Interval: {time_diff:.1f}s)")
                 
             # --- 3. DATABASE SAVE ---
             if should_save:
