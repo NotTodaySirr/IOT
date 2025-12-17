@@ -23,11 +23,28 @@ def health_check():
 
 
 @sensor_bp.route('/stream', methods=['GET'])
+@require_auth
 def stream_readings():
     """
     Server-Sent Events (SSE) endpoint for real-time sensor updates.
     Yields data immediately when available from MQTT handler.
+    
+    Authentication required - only streams data from user's registered devices.
     """
+    from flask import g
+    
+    # Get user's registered device IDs (query once at connection start)
+    user_id = g.user.get('id')
+    db = get_db()
+    try:
+        user_devices = db.query(DeviceState.device_id).filter(
+            DeviceState.user_id == user_id,
+            DeviceState.is_active == True
+        ).all()
+        my_device_ids = {d.device_id for d in user_devices}
+    finally:
+        db.close()
+    
     mqtt_handler = get_mqtt_handler()
     
     def generate():
@@ -40,6 +57,12 @@ def stream_readings():
                 current_data = mqtt_handler.latest_reading
                 # Clear event after reading so we can wait for next one
                 mqtt_handler.new_data_event.clear()
+                
+                # Filter: only send data from user's registered devices
+                data_device_id = current_data.get('device_id')
+                if data_device_id not in my_device_ids:
+                    continue  # Skip data from other users' devices
+                
                 # Only yield if data has changed
                 if current_data != last_data:
                     data = json.dumps(current_data)
@@ -60,7 +83,7 @@ def stream_readings():
 @require_auth
 def get_history():
     """
-    Retrieve historical sensor data.
+    Retrieve historical sensor data for the authenticated user.
     
     Query Parameters:
         page (int): Page number for pagination
@@ -69,6 +92,8 @@ def get_history():
         start (iso_str): Start date
         end (iso_str): End date
     """
+    from flask import g
+    
     db = None
     try:
         page = request.args.get('page', type=int)
@@ -80,6 +105,10 @@ def get_history():
         
         db = get_db()
         query = db.query(SensorData)
+        
+        # Filter by authenticated user's data only
+        user_id = g.user.get('id')
+        query = query.filter(SensorData.user_id == user_id)
         
         # Apply Date Filtering
         if start:
@@ -183,18 +212,23 @@ def control_device():
 @require_auth
 def get_current_readings():
     """
-    Get the most recent sensor readings.
+    Get the most recent sensor readings for the authenticated user.
     
     Returns:
-        Latest sensor data record
+        Latest sensor data record from user's devices
     """
+    from flask import g
+    
     db = None
     try:
+        user_id = g.user.get('id')
         db = get_db()
-        latest = db.query(SensorData).order_by(SensorData.recorded_at.desc()).first()
+        latest = db.query(SensorData).filter(
+            SensorData.user_id == user_id
+        ).order_by(SensorData.recorded_at.desc()).first()
         
         if latest is None:
-            return jsonify({'error': 'No sensor data available'}), 404
+            return jsonify({'error': 'No sensor data available for your devices'}), 404
         
         return jsonify({
             'success': True,

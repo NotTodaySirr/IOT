@@ -1,287 +1,373 @@
+/**
+ * @file main.cpp
+ * @brief Environmental Control System (ECS) - Main Application
+ * 
+ * ┌─────────────────────────────────────────────────────────────────────────────┐
+ * │                    SYSTEM ARCHITECTURE OVERVIEW                             │
+ * │                                                                             │
+ * │   ┌─────────────────────────────────────────────────────────────────────┐   │
+ * │   │                    UPSTREAM FLOW (Data Out)                         │   │
+ * │   │   Sensors ──▶ ESP32 Processing ──▶ LCD Display                      │   │
+ * │   │                      │                                              │   │
+ * │   │                      └──▶ MQTT Publish ──▶ Backend ──▶ Frontend     │   │
+ * │   └─────────────────────────────────────────────────────────────────────┘   │
+ * │                                                                             │
+ * │   ┌─────────────────────────────────────────────────────────────────────┐   │
+ * │   │                   DOWNSTREAM FLOW (Commands In)                     │   │
+ * │   │   Frontend ──▶ Backend ──▶ MQTT Publish                             │   │
+ * │   │                              │                                      │   │
+ * │   │                              └──▶ ESP32 Subscribe ──▶ Relay Control │   │
+ * │   └─────────────────────────────────────────────────────────────────────┘   │
+ * │                                                                             │
+ * │   Files:                                                                    │
+ * │   - config.h         : Pin definitions, network settings, thresholds       │
+ * │   - LCD_I2C_Wire1.h  : Custom LCD class for secondary I2C bus              │
+ * │   - upstream_flow.h  : Sensor reading, display, data publishing            │
+ * │   - downstream_flow.h: Command reception and relay control                 │
+ * │   - main.cpp         : Initialization and main loop orchestration          │
+ * └─────────────────────────────────────────────────────────────────────────────┘
+ */
+
+// =============================================================================
+// INCLUDES
+// =============================================================================
 #include <Arduino.h>
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
 #include <DHT.h>
 #include <WiFi.h>
 #include <PubSubClient.h>
+#include <MQUnifiedsensor.h>
 #include "time.h"
 
-//#define BYPASS_NETWORKING
+// Project headers
+#include "config.h"
+#include "LCD_I2C_Wire1.h"
+#include "upstream_flow.h"
+#include "downstream_flow.h"
 
-const char* WIFI_SSID     = "Wokwi-GUEST";
-const char* WIFI_PASSWORD = "";
-const char* MQTT_SERVER   = "broker.hivemq.com"; 
-const int   MQTT_PORT     = 1883;
+// =============================================================================
+// GLOBAL OBJECTS
+// =============================================================================
 
-// Time configuration
-const char* ntpServer = "pool.ntp.org";
-const long  gmtOffset_sec = 25200; // 7 hours
-const int   daylightOffset_sec = 0;
-
-const float R0 = 10.0;
-
-// Pin definitions
-#define DHT_PIN         4
-#define MQ7_PIN         10   
-#define RELAY_FAN1_PIN  38  
-#define RELAY_FAN2_PIN  39  
-#define LED_RED_PIN     18
-#define LED_GREEN_PIN   19
-#define BUZZER_PIN      5
-
-// Buzzer LEDC Configuration
-#define LEDC_CHANNEL 0
-#define LEDC_RESOLUTION 8
-#define LEDC_BASE_FREQ 2000
-
-#define I2C_SDA         8   
-#define I2C_SCL         9   
-
-// Objects
+// --- Sensors ---
 DHT dht(DHT_PIN, DHT22);
+
+// --- Networking ---
 WiFiClient espClient;
 PubSubClient client(espClient);
 
-LiquidCrystal_I2C lcd1(0x27, 20, 4);
-LiquidCrystal_I2C lcd2(0x26, 20, 4);
+// --- Display ---
+LiquidCrystal_I2C lcd1(0x27, 16, 2);  // Primary LCD (Wire bus)
+LCD_I2C_Wire1 lcd2(0x27, 16, 2);      // Secondary LCD (Wire1 bus)
 
-// Global Variables for Timers
+// --- MQ7 Gas Sensor ---
+MQUnifiedsensor MQ7(BOARD, VOLTAGE_RESOLUTION, ADC_BIT_RESOLUTION, MQ7_PIN, "MQ-7");
+
+// =============================================================================
+// GLOBAL STATE VARIABLES
+// =============================================================================
+
+// --- Timing Control ---
 unsigned long lastSensorRead = 0;
-const long sensorInterval = 1000; // Read sensors every 1 second
+unsigned long lastDisplayToggle = 0;
+unsigned long lastBlinkTime = 0;
 
-unsigned long lastBlink = 0;
-const long blinkInterval = 500;   // Blink LED every 500ms
-bool redLedState = LOW;           // Track blink state
-bool isGasDanger = false;         // Persist danger state between loops
+// --- Display Control ---
+int displayPage = 0;
 
-// Manual Override State
-bool manualMode = false;          // Track if manual control is active
+// --- System State ---
+bool isGasDanger = false;
+bool manualMode = false;
 bool manualFan1State = LOW;
 bool manualFan2State = LOW;
+bool ledBlinkState = false;
 
-// Helper Functions
-float calculatePPM(int analogValue) {
-  float voltage = analogValue * (3.3 / 4095.0);
-  if (voltage < 0.1) return 0.0;
-  if (voltage > 3.2) return 9999.0;
+// --- Last Sensor Readings ---
+float lastTemp = 0;
+float lastHum = 0;
+float lastCO = 0;
 
-  const float RL = 10.0; 
-  float sensorResistance = RL * ((3.3 / voltage) - 1.0);
-  float ratio = sensorResistance / R0;
+// =============================================================================
+// INITIALIZATION FUNCTIONS
+// =============================================================================
 
-  if (ratio < 0.01) return 9999.0;
-  if (ratio > 100.0) return 0.0;
-
-  float ppm = 99.048 * pow(ratio, -1.518);
-  if (ppm < 0) ppm = 0;
-  if (ppm > 9999.0) ppm = 9999.0;
-  return ppm;
-}
-
-void mqttCallback(char* topic, byte* payload, unsigned int length) {
-  char message[length + 1];
-  for (unsigned int i = 0; i < length; i++) {
-    message[i] = (char)payload[i];
-  }
-  message[length] = '\0';
-  
-  Serial.print("[MQTT] Command received: ");
-  Serial.println(message);
-  
-  // Enable manual mode and apply the command
-  manualMode = true;
-  
-  if (strcmp(message, "FAN_ON") == 0) {
-    manualFan1State = HIGH;
-    digitalWrite(RELAY_FAN1_PIN, HIGH);
-    Serial.println("[RELAY] Fan1 -> ON");
-  } else if (strcmp(message, "FAN_OFF") == 0) {
-    manualFan1State = LOW;
-    digitalWrite(RELAY_FAN1_PIN, LOW);
-    Serial.println("[RELAY] Fan1 -> OFF");
-  } else if (strcmp(message, "PURIFIER_ON") == 0) {
-    manualFan2State = HIGH;
-    digitalWrite(RELAY_FAN2_PIN, HIGH);
-    Serial.println("[RELAY] Fan2 -> ON");
-  } else if (strcmp(message, "PURIFIER_OFF") == 0) {
-    manualFan2State = LOW;
-    digitalWrite(RELAY_FAN2_PIN, LOW);
-    Serial.println("[RELAY] Fan2 -> OFF");
-  }
-}
-
-void init_hardware(){
-  pinMode(MQ7_PIN, INPUT);
-  pinMode(RELAY_FAN1_PIN, OUTPUT);
-  pinMode(RELAY_FAN2_PIN, OUTPUT);
-  pinMode(LED_RED_PIN, OUTPUT);
-  pinMode(LED_GREEN_PIN, OUTPUT);
-  pinMode(BUZZER_PIN, OUTPUT);
-
-  digitalWrite(RELAY_FAN1_PIN, LOW);
-  digitalWrite(RELAY_FAN2_PIN, LOW);
-  digitalWrite(LED_RED_PIN, LOW);
-  digitalWrite(LED_GREEN_PIN, HIGH); 
-  
-  ledcSetup(LEDC_CHANNEL, LEDC_BASE_FREQ, LEDC_RESOLUTION);
-  ledcAttachPin(BUZZER_PIN, LEDC_CHANNEL);
-
-  Wire.begin(I2C_SDA, I2C_SCL);
-  lcd1.init(); lcd1.backlight(); lcd1.clear();
-  lcd2.init(); lcd2.backlight(); lcd2.clear();
-  
-  lcd1.setCursor(0, 0); lcd1.print("LCD1: Sensors");
-  lcd2.setCursor(0, 0); lcd2.print("LCD2: Time/Date");
-  
-  dht.begin();
-}
-
-void init_wifi() {
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-  }
-
-  Serial.println("\n[WIFI] Connected");
-  Serial.print("[WIFI] MAC Address: ");
-  Serial.println(WiFi.macAddress());
-  lcd1.setCursor(0, 1); lcd1.print("WiFi: Connected  ");
-
-  configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
-}
-
-void init_mqtt() {
-  client.setServer(MQTT_SERVER, MQTT_PORT);
-  client.setCallback(mqttCallback);
-  // Non-blocking approach preferred, but blocking ok for setup
-  int retries = 0;
-  while (!client.connected() && retries < 5) {
-    if (client.connect("ESP32_Room_Monitor")) {
-      // Subscribe to device-specific control topic
-      String controlTopic = "ecs/control/" + WiFi.macAddress();
-      client.subscribe(controlTopic.c_str());
-      Serial.print("[MQTT] Subscribed to: ");
-      Serial.println(controlTopic);
-      client.publish("room/status", "online");
-    } else {
-      delay(1000);
-      retries++;
-    }
-  }
-}
-
-void display_time() {
-  #ifndef BYPASS_NETWORKING
-  struct tm timeinfo;
-  if(!getLocalTime(&timeinfo)){
-    lcd2.setCursor(0, 2); lcd2.print("Time: Sync Error    ");
-    return;
-  }
-  char timeStr[10], dateStr[12];
-  strftime(timeStr, 10, "%H:%M:%S", &timeinfo);
-  strftime(dateStr, 12, "%d/%m/%Y", &timeinfo);
-
-  lcd2.setCursor(0, 2); lcd2.print("Time: "); lcd2.print(timeStr);
-  lcd2.setCursor(0, 3); lcd2.print("Date: "); lcd2.print(dateStr);
-  #endif
-}
-
-void setup() {
-  Serial.begin(115200);
-  init_hardware();
-  #ifndef BYPASS_NETWORKING
-  init_wifi();
-  init_mqtt();
-  #endif
-}
-
-void loop() {
-  unsigned long currentMillis = millis();
-
-  // --- 1. NETWORK TASK (Always Run) ---
-  #ifndef BYPASS_NETWORKING
-  if (!client.connected()) {
-    // Basic reconnect if needed
-    if (WiFi.status() == WL_CONNECTED) {
-       if (client.connect("ESP32_Room_Monitor")) {
-          String controlTopic = "ecs/control/" + WiFi.macAddress();
-          client.subscribe(controlTopic.c_str());
-       }
-    }
-  }
-  client.loop();
-  #endif
-
-  // --- 2. SENSOR TASK (Run every 1 second) ---
-  if (currentMillis - lastSensorRead >= sensorInterval) {
-    lastSensorRead = currentMillis;
+/**
+ * @brief Initialize all hardware components.
+ * 
+ * Sets up GPIO pins, I2C buses, LCD displays, and sensors.
+ */
+void init_hardware() {
+    // --- GPIO Configuration ---
+    pinMode(MQ7_PIN, INPUT);
+    pinMode(RELAY_FAN1_PIN, OUTPUT);
+    pinMode(RELAY_FAN2_PIN, OUTPUT);
+    pinMode(LED_RED_PIN, OUTPUT);
+    pinMode(LED_GREEN_PIN, OUTPUT);
+    pinMode(BUZZER_PIN, OUTPUT);
     
-    float temp = dht.readTemperature();
-    float hum = dht.readHumidity();
-    int rawGas = analogRead(MQ7_PIN);
-    float coPPM = calculatePPM(rawGas);
-
-    if (!isnan(temp) && !isnan(hum)) {
-      // Logic Thresholds
-      bool highTemp = (temp > 35.0);
-      isGasDanger = (coPPM > 50.0); // Update global flag for the blink task
-
-      // Actuators (Fans/Buzzer) - Only apply if NOT in manual mode
-      if (!manualMode) {
-        digitalWrite(RELAY_FAN1_PIN, highTemp ? HIGH : LOW);
-        digitalWrite(RELAY_FAN2_PIN, isGasDanger ? HIGH : LOW);
-      }
-      
-      // Buzzer - Always auto-controlled for safety
-      if (isGasDanger) {
-        ledcWriteTone(LEDC_CHANNEL, 1000);
-        #ifndef BYPASS_NETWORKING
-        client.publish("room/alert", "HIGH CO DETECTED!");
-        #endif
-      } else {
-        ledcWriteTone(LEDC_CHANNEL, 0);
-      }
-
-      // Display Update
-      lcd1.setCursor(0, 0); lcd1.print("Temp: "); lcd1.print(temp, 1); lcd1.print("C     ");
-      lcd1.setCursor(0, 1); lcd1.print("Hum:  "); lcd1.print(hum, 1); lcd1.print("%     ");
-      lcd1.setCursor(0, 2); lcd1.print("CO:   "); lcd1.print(coPPM, 1); lcd1.print(" ppm   ");
-      lcd1.setCursor(0, 3); 
-      if (isGasDanger) lcd1.print("Status: DANGER!     ");
-      else lcd1.print("Status: Safe        ");
-
-      display_time();
-
-      // MQTT Publish
-      char tempStr[16], humStr[16], gasStr[16];
-      dtostrf(temp, 1, 2, tempStr);
-      dtostrf(hum, 1, 2, humStr);
-      dtostrf(min(coPPM, 9999.0f), 1, 2, gasStr);
-
-  #ifndef BYPASS_NETWORKING
-  // Construct JSON Payload manually to avoid extra dependencies
-  // Include device_id (MAC address) for user-device linking in backend
-  String payload = "{\"device_id\":\"";
-  payload += WiFi.macAddress();  // e.g., "AA:BB:CC:DD:EE:FF"
-  payload += "\",\"temperature\":";
-  payload += tempStr;
-  payload += ",\"humidity\":";
-  payload += humStr;
-  payload += ",\"co_level\":";
-  payload += gasStr;
-  payload += "}";
-  
-  // Publish to 'ecs/upload'
-  client.publish("ecs/upload", payload.c_str());
-  #endif
+    // --- Initial States ---
+    digitalWrite(RELAY_FAN1_PIN, LOW);
+    digitalWrite(RELAY_FAN2_PIN, LOW);
+    digitalWrite(LED_RED_PIN, LOW);
+    digitalWrite(LED_GREEN_PIN, HIGH);
+    
+    // --- Buzzer PWM ---
+    ledcSetup(LEDC_CHANNEL, LEDC_BASE_FREQ, LEDC_RESOLUTION);
+    ledcAttachPin(BUZZER_PIN, LEDC_CHANNEL);
+    
+    // --- I2C Buses ---
+    Wire.begin(I2C1_SDA, I2C1_SCL);
+    Wire1.begin(I2C2_SDA, I2C2_SCL);
+    
+    // --- I2C Scanner (Debug) ---
+    Serial.println("\n==== I2C Scanner ====");
+    Serial.println("Scanning Wire (LCD1)...");
+    for (uint8_t addr = 1; addr < 127; addr++) {
+        Wire.beginTransmission(addr);
+        if (Wire.endTransmission() == 0) {
+            Serial.printf("  Found: 0x%02X\n", addr);
+        }
     }
-  }
-  
-  Serial.println("[LOOP] Loop iteration complete");
-  delay(1000);
+    Serial.println("Scanning Wire1 (LCD2)...");
+    for (uint8_t addr = 1; addr < 127; addr++) {
+        Wire1.beginTransmission(addr);
+        if (Wire1.endTransmission() == 0) {
+            Serial.printf("  Found: 0x%02X\n", addr);
+        }
+    }
+    Serial.println("====================\n");
+    
+    // --- LCD Initialization ---
+    lcd1.init();
+    lcd1.backlight();
+    lcd1.setCursor(0, 0);
+    lcd1.print("LCD1 OK");
+    
+    lcd2.init();
+    lcd2.backlight();
+    lcd2.setCursor(0, 0);
+    lcd2.print("LCD2 OK");
+    
+    // --- DHT22 Initialization ---
+    dht.begin();
+    
+    // --- MQ7 Initialization ---
+    Serial.println("\n==== MQ7 Initialization ====");
+    MQ7.setRegressionMethod(1);
+    MQ7.setA(99.043);
+    MQ7.setB(-1.518);
+    MQ7.init();
+    
+    lcd2.setCursor(0, 1);
+    lcd2.print("MQ7 Calibrating");
+    
+    Serial.print("[MQ7] Calibrating");
+    float calcR0 = 0;
+    for (int i = 1; i <= 10; i++) {
+        MQ7.update();
+        calcR0 += MQ7.calibrate(RATIO_MQ7_CLEAN_AIR);
+        Serial.print(".");
+        delay(100);
+    }
+    MQ7.setR0(calcR0 / 10);
+    Serial.printf(" done! R0=%.2f\n", calcR0 / 10);
+    Serial.println("============================\n");
 }
+
+/**
+ * @brief Initialize WiFi connection.
+ */
+void init_wifi() {
+    lcd2.setCursor(0, 1);
+    lcd2.print("WiFi...");
+    
+    Serial.println("\n==== WiFi Initialization ====");
+    Serial.printf("[WIFI] Connecting to: %s\n", WIFI_SSID);
+    
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+    
+    int attempts = 0;
+    while (WiFi.status() != WL_CONNECTED && attempts < 30) {
+        delay(500);
+        Serial.printf("[WIFI] Attempt %d/30\n", ++attempts);
+    }
+    
+    if (WiFi.status() == WL_CONNECTED) {
+        Serial.printf("[WIFI] Connected! IP: %s, MAC: %s\n", 
+                      WiFi.localIP().toString().c_str(),
+                      WiFi.macAddress().c_str());
+        configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
+    } else {
+        Serial.println("[WIFI] Connection failed!");
+    }
+    Serial.println("=============================\n");
+}
+
+/**
+ * @brief Initialize MQTT connection.
+ * 
+ * Uses the downstream flow callback for command reception.
+ */
+void init_mqtt() {
+    Serial.println("\n==== MQTT Initialization ====");
+    Serial.printf("[MQTT] Broker: %s:%d\n", MQTT_SERVER, MQTT_PORT);
+    
+    client.setServer(MQTT_SERVER, MQTT_PORT);
+    client.setCallback(mqttCommandCallback);  // DOWNSTREAM: Register callback
+    
+    String clientId = "ESP32_" + WiFi.macAddress();
+    
+    int retries = 0;
+    while (!client.connected() && retries < 5) {
+        Serial.printf("[MQTT] Attempt %d/5\n", ++retries);
+        
+        if (client.connect(clientId.c_str())) {
+            Serial.println("[MQTT] Connected!");
+            subscribeToControlTopic();  // DOWNSTREAM: Subscribe to commands
+            announceOnline();            // DOWNSTREAM: Announce presence
+        } else {
+            Serial.printf("[MQTT] Failed, rc=%d\n", client.state());
+            delay(2000);
+        }
+    }
+    Serial.println("=============================\n");
+}
+
+// =============================================================================
+// MAIN PROGRAM
+// =============================================================================
+
+/**
+ * @brief Arduino setup function.
+ */
+void setup() {
+    Serial.begin(115200);
+    Serial.println("\n");
+    Serial.println("╔═══════════════════════════════════════════════════════╗");
+    Serial.println("║     ENVIRONMENTAL CONTROL SYSTEM (ECS) v2.0           ║");
+    Serial.println("╚═══════════════════════════════════════════════════════╝\n");
+    
+    init_hardware();
+    
+    #ifndef BYPASS_NETWORKING
+    init_wifi();
+    init_mqtt();
+    #endif
+    
+    displayPage = 0;
+    displayStatusOrTime();
+    
+    Serial.println("[SETUP] Complete!\n");
+}
+
+/**
+ * @brief Arduino loop function.
+ * 
+ * Orchestrates both UPSTREAM and DOWNSTREAM flows:
+ * 
+ * UPSTREAM (executed every SENSOR_READ_INTERVAL):
+ *   1. Read sensors
+ *   2. Update LCD displays
+ *   3. Apply automatic control (if not in manual mode)
+ *   4. Update alerts (LED, buzzer)
+ *   5. Publish data to MQTT
+ * 
+ * DOWNSTREAM (event-driven via MQTT callback):
+ *   - Commands are processed in mqttCommandCallback()
+ *   - Relay states are updated immediately upon receipt
+ */
+void loop() {
+    unsigned long currentMillis = millis();
+    
+    // =========================================================================
+    // DOWNSTREAM: MQTT MESSAGE PROCESSING
+    // =========================================================================
+    // The client.loop() call checks for incoming MQTT messages.
+    // If a message arrives, mqttCommandCallback() is invoked automatically.
+    // This is the DOWNSTREAM flow entry point.
+    
+    #ifndef BYPASS_NETWORKING
+    if (!client.connected()) {
+        if (WiFi.status() == WL_CONNECTED) {
+            String clientId = "ESP32_" + WiFi.macAddress();
+            if (client.connect(clientId.c_str())) {
+                subscribeToControlTopic();
+            }
+        }
+    }
+    client.loop();  // <-- DOWNSTREAM: Check for incoming commands
+    #endif
+    
+    // =========================================================================
+    // UPSTREAM: SENSOR READING & DATA PUBLISHING
+    // =========================================================================
+    // This section handles the UPSTREAM flow:
+    //   Sensors → Processing → Display → MQTT Publish → Backend → Frontend
+    
+    if (currentMillis - lastSensorRead >= SENSOR_READ_INTERVAL) {
+        lastSensorRead = currentMillis;
+        
+        // --- UPSTREAM: Read Sensors ---
+        float temp, hum, co;
+        if (readAllSensors(temp, hum, co)) {
+            lastTemp = temp;
+            lastHum = hum;
+            lastCO = co;
+            
+            // Evaluate conditions
+            bool highTemp = (temp > TEMP_HIGH_THRESHOLD);
+            isGasDanger = (co > CO_DANGER_THRESHOLD);
+            
+            // --- DOWNSTREAM: Automatic Control (if not manual) ---
+            // This bridges UPSTREAM sensor data with DOWNSTREAM relay control
+            applyAutomaticControl(highTemp, isGasDanger);
+            
+            // --- UPSTREAM: Update Displays ---
+            displaySensorData();
+            
+            // --- UPSTREAM: Update Alerts ---
+            updateLEDIndicators(isGasDanger || highTemp);
+            updateBuzzerAlarm(isGasDanger);
+            
+            if (isGasDanger) {
+                publishAlert("HIGH CO DETECTED!");
+            }
+            
+            // --- UPSTREAM: Publish to Backend ---
+            publishSensorData();
+        }
+    }
+    
+    // =========================================================================
+    // UPSTREAM: LCD2 DISPLAY TOGGLE
+    // =========================================================================
+    if (currentMillis - lastDisplayToggle >= DISPLAY_TOGGLE_INTERVAL) {
+        lastDisplayToggle = currentMillis;
+        displayPage = (displayPage + 1) % 2;
+        displayStatusOrTime();
+    } else {
+        // Update clock every second when on time page
+        static unsigned long lastClockUpdate = 0;
+        if (displayPage == 1 && (currentMillis - lastClockUpdate > 1000)) {
+            lastClockUpdate = currentMillis;
+            displayStatusOrTime();
+        }
+    }
+    
+    // =========================================================================
+    // UPSTREAM: LED BLINKING (Danger Alert)
+    // =========================================================================
+    if (isGasDanger || lastTemp > TEMP_HIGH_THRESHOLD) {
+        if (currentMillis - lastBlinkTime >= LED_BLINK_INTERVAL) {
+            lastBlinkTime = currentMillis;
+            ledBlinkState = !ledBlinkState;
+            digitalWrite(LED_RED_PIN, ledBlinkState ? HIGH : LOW);
+        }
+    }
+}
+
 
 
 
