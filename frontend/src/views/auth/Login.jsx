@@ -19,7 +19,7 @@ const Login = () => {
         const { success, error: authError } = await signIn(email, password);
 
         if (success) {
-            showSuccess('Login successful... Accessing Terminal');
+            showSuccess('Login successful... Accessing Dashboard');
             // AuthContext will automatically update isAuthenticated
             navigate('/dashboard');
         } else if (authError) {

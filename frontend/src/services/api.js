@@ -1,14 +1,9 @@
 import axios from 'axios';
 import { supabase } from '../lib/supabaseClient';
 
-/**
- * Centralized Axios instance for API configuration.
- * 
- * TODO: Configure base URL, timeout, and error handling interceptors.
- */
 const api = axios.create({
     baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000',
-    timeout: 30000, // Increased to 30s for AI chatbot requests
+    timeout: 30000,
 });
 
 // Add request interceptor for authentication tokens
