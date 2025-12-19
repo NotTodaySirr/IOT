@@ -17,9 +17,8 @@
 // #define BYPASS_NETWORKING
 
 // WiFi Credentials
-// const char* WIFI_SSID     = "Wokwi-GUEST";  // For simulation
-const char* WIFI_SSID     = "BadWifi";         // Your WiFi network name
-const char* WIFI_PASSWORD = "Mtuan12345";      // Your WiFi password
+const char* WIFI_SSID     = "Wokwi-GUEST";         // Your WiFi network name
+const char* WIFI_PASSWORD = "";      // Your WiFi password
 
 // MQTT Broker Configuration
 const char* MQTT_SERVER   = "broker.hivemq.com"; // Public MQTT broker
@@ -28,7 +27,6 @@ const int   MQTT_PORT     = 1883;                // Standard MQTT port
 // MQTT Topic Definitions
 const char* MQTT_TOPIC_UPLOAD  = "ecs/upload";      // Sensor data publishing
 const char* MQTT_TOPIC_ALERT   = "room/alert";      // Alert messages
-const char* MQTT_TOPIC_STATUS  = "room/status";     // Device status
 const char* MQTT_TOPIC_CONTROL = "ecs/control/";    // Control commands (append MAC)
 
 // =============================================================================
@@ -88,7 +86,7 @@ const int   daylightOffset_sec = 0;         // No daylight saving time
 // TIMING INTERVALS (milliseconds)
 // =============================================================================
 const long SENSOR_READ_INTERVAL = 2000;     // Read sensors every 2 seconds
-const long DISPLAY_TOGGLE_INTERVAL = 3000;  // Toggle LCD2 content every 3 seconds
+const long STATUS_ALERT_DURATION = 5000;    // Show status page for 5s after state change
 const long LED_BLINK_INTERVAL = 250;        // Blink LED every 250ms during danger
 
 // =============================================================================

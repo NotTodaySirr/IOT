@@ -70,8 +70,8 @@ MQUnifiedsensor MQ7(BOARD, VOLTAGE_RESOLUTION, ADC_BIT_RESOLUTION, MQ7_PIN, "MQ-
 
 // --- Timing Control ---
 unsigned long lastSensorRead = 0;
-unsigned long lastDisplayToggle = 0;
 unsigned long lastBlinkTime = 0;
+unsigned long statusMessageStartTime = 0;
 
 // --- Display Control ---
 int displayPage = 0;
@@ -83,10 +83,13 @@ bool manualFan1State = LOW;
 bool manualFan2State = LOW;
 bool ledBlinkState = false;
 
-// --- Last Sensor Readings ---
 float lastTemp = 0;
 float lastHum = 0;
 float lastCO = 0;
+
+// --- Connection State Tracking (for event-driven LCD2) ---
+wl_status_t lastWiFiStatus = WL_IDLE_STATUS;
+bool lastMqttConnected = false;
 
 // =============================================================================
 // INITIALIZATION FUNCTIONS
@@ -226,7 +229,6 @@ void init_mqtt() {
         if (client.connect(clientId.c_str())) {
             Serial.println("[MQTT] Connected!");
             subscribeToControlTopic();  // DOWNSTREAM: Subscribe to commands
-            announceOnline();            // DOWNSTREAM: Announce presence
         } else {
             Serial.printf("[MQTT] Failed, rc=%d\n", client.state());
             delay(2000);
@@ -341,20 +343,58 @@ void loop() {
     }
     
     // =========================================================================
-    // UPSTREAM: LCD2 DISPLAY TOGGLE
+    // UPSTREAM: LCD2 DISPLAY LOGIC (Event-Driven)
     // =========================================================================
-    if (currentMillis - lastDisplayToggle >= DISPLAY_TOGGLE_INTERVAL) {
-        lastDisplayToggle = currentMillis;
-        displayPage = (displayPage + 1) % 2;
+    // Rule 1: If WiFi is offline, always show status page.
+    // Rule 2: If WiFi is online, show status briefly on state changes, then show time.
+    
+    #ifndef BYPASS_NETWORKING
+    wl_status_t currentWiFiStatus = WiFi.status();
+    bool currentMqttConnected = client.connected();
+    
+    // LCD2 refresh interval (500ms) to prevent overwhelming the display
+    static unsigned long lastLcd2Update = 0;
+    const unsigned long LCD2_REFRESH_INTERVAL = 500;
+    
+    // Detect state changes
+    bool stateChanged = (currentWiFiStatus != lastWiFiStatus) || 
+                        (currentMqttConnected != lastMqttConnected);
+    
+    if (stateChanged) {
+        lastWiFiStatus = currentWiFiStatus;
+        lastMqttConnected = currentMqttConnected;
+        displayPage = 0;  // Show status page
+        statusMessageStartTime = currentMillis;
         displayStatusOrTime();
+        lastLcd2Update = currentMillis;
+    } else if (currentWiFiStatus != WL_CONNECTED) {
+        // WiFi offline: persistently show status (throttled)
+        displayPage = 0;
+        if (currentMillis - lastLcd2Update >= LCD2_REFRESH_INTERVAL) {
+            lastLcd2Update = currentMillis;
+            displayStatusOrTime();
+        }
     } else {
-        // Update clock every second when on time page
-        static unsigned long lastClockUpdate = 0;
-        if (displayPage == 1 && (currentMillis - lastClockUpdate > 1000)) {
-            lastClockUpdate = currentMillis;
+        // WiFi online: check if status alert duration expired
+        if (displayPage == 0 && (currentMillis - statusMessageStartTime >= STATUS_ALERT_DURATION)) {
+            displayPage = 1;  // Switch to time page
+        }
+        
+        // Update display at refresh interval
+        if (currentMillis - lastLcd2Update >= (displayPage == 1 ? 1000 : LCD2_REFRESH_INTERVAL)) {
+            lastLcd2Update = currentMillis;
             displayStatusOrTime();
         }
     }
+    #else
+    // Offline mode: just show time
+    static unsigned long lastClockUpdate = 0;
+    if (currentMillis - lastClockUpdate > 1000) {
+        lastClockUpdate = currentMillis;
+        displayPage = 1;
+        displayStatusOrTime();
+    }
+    #endif
     
     // =========================================================================
     // UPSTREAM: LED BLINKING (Danger Alert)

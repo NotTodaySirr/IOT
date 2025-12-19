@@ -137,37 +137,40 @@ inline void displaySensorData() {
  * Page 1: Current time and date
  */
 inline void displayStatusOrTime() {
-    lcd2.clear();
+    // NOTE: Do NOT call lcd2.clear() here - it causes visible flicker.
+    // Instead, overwrite with padded strings to clear leftover characters.
     
     if (displayPage == 0) {
         // STATUS PAGE
         lcd2.setCursor(0, 0);
         if (isGasDanger) {
-            lcd2.print("!! DANGER !!");
+            lcd2.print("!! DANGER !!    ");  // Pad to 16 chars
         } else if (lastTemp > TEMP_HIGH_THRESHOLD) {
-            lcd2.print("TEMP HIGH!");
+            lcd2.print("TEMP HIGH!      ");  // Pad to 16 chars
         } else {
-            lcd2.print("Status: OK");
+            lcd2.print("Status: OK      ");  // Pad to 16 chars
         }
         
         lcd2.setCursor(0, 1);
         #ifndef BYPASS_NETWORKING
-        lcd2.print(WiFi.status() == WL_CONNECTED ? "WiFi: Connected" : "WiFi: Offline");
+        lcd2.print(WiFi.status() == WL_CONNECTED ? "WiFi: Connected " : "WiFi: Offline   ");
         #else
-        lcd2.print("Offline Mode");
+        lcd2.print("Offline Mode    ");
         #endif
     } else {
         // TIME PAGE
         struct tm timeinfo;
         if (!getLocalTime(&timeinfo)) {
             lcd2.setCursor(0, 0);
-            lcd2.print("Time Error");
+            lcd2.print("Time Error      ");
+            lcd2.setCursor(0, 1);
+            lcd2.print("                ");
             return;
         }
-        lcd2.setCursor(4, 0);
-        lcd2.printf("%02d:%02d:%02d", timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
-        lcd2.setCursor(3, 1);
-        lcd2.printf("%02d/%02d/%04d", timeinfo.tm_mday, timeinfo.tm_mon + 1, timeinfo.tm_year + 1900);
+        lcd2.setCursor(0, 0);
+        lcd2.printf("    %02d:%02d:%02d    ", timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+        lcd2.setCursor(0, 1);
+        lcd2.printf("   %02d/%02d/%04d   ", timeinfo.tm_mday, timeinfo.tm_mon + 1, timeinfo.tm_year + 1900);
     }
 }
 

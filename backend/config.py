@@ -37,7 +37,6 @@ class Config:
     # MQTT Topics
     MQTT_TOPIC_UPLOAD = os.getenv('MQTT_TOPIC_UPLOAD', 'ecs/upload')
     MQTT_TOPIC_CONTROL = os.getenv('MQTT_TOPIC_CONTROL', 'ecs/control')
-    MQTT_TOPIC_STATUS = os.getenv('MQTT_TOPIC_STATUS', 'ecs/status')
     
     @staticmethod
     def validate():

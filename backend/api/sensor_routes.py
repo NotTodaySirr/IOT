@@ -208,39 +208,6 @@ def control_device():
         return jsonify({'error': str(e)}), 500
 
 
-@sensor_bp.route('/current', methods=['GET'])
-@require_auth
-def get_current_readings():
-    """
-    Get the most recent sensor readings for the authenticated user.
-    
-    Returns:
-        Latest sensor data record from user's devices
-    """
-    from flask import g
-    
-    db = None
-    try:
-        user_id = g.user.get('id')
-        db = get_db()
-        latest = db.query(SensorData).filter(
-            SensorData.user_id == user_id
-        ).order_by(SensorData.recorded_at.desc()).first()
-        
-        if latest is None:
-            return jsonify({'error': 'No sensor data available for your devices'}), 404
-        
-        return jsonify({
-            'success': True,
-            'data': latest.to_dict()
-        }), 200
-        
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-    finally:
-        if db:
-            db.close()
-
 
 @sensor_bp.route('/register-device', methods=['POST'])
 @require_auth

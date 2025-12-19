@@ -227,19 +227,6 @@ inline bool subscribeToControlTopic() {
     return false;
 }
 
-/**
- * @brief Announce device online status.
- * 
- * FLOW: Device Info → JSON → MQTT Publish
- * 
- * Topic: room/status
- */
-inline void announceOnline() {
-    #ifndef BYPASS_NETWORKING
-    String statusPayload = "{\"device_id\":\"" + WiFi.macAddress() + "\",\"status\":\"online\"}";
-    client.publish(MQTT_TOPIC_STATUS, statusPayload.c_str());
-    Serial.println("[DOWNSTREAM] Announced online status");
-    #endif
-}
+
 
 #endif // DOWNSTREAM_FLOW_H
