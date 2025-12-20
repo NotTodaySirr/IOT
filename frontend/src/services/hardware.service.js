@@ -16,27 +16,7 @@ import { supabase } from '../lib/supabaseClient';
 //   - UI-related logic
 // ============================================================================
 
-/**
- * Fetch current sensor data (Temperature, Humidity, CO).
- * 
- * @returns {Promise<{temp: number, humidity: number, co: number}>}
- */
-export const getSensorData = async () => {
-    // TODO: Implement API call to fetch sensor data
-    // return await api.get('/hardware/sensors');
-    throw new Error('getSensorData: Not implemented');
-};
 
-/**
- * Fetch current actuator states (Fan, Heater, Buzzer).
- * 
- * @returns {Promise<{fan: boolean, heater: boolean, buzzer: boolean}>}
- */
-export const getActuatorState = async () => {
-    // TODO: Implement API call to fetch actuator states
-    // return await api.get('/hardware/actuators');
-    throw new Error('getActuatorState: Not implemented');
-};
 
 // ============================================================================
 // SSE STREAM CONNECTION

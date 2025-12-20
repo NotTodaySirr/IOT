@@ -9,30 +9,27 @@ import * as hardwareService from '../services/hardware.service';
 const useActuators = () => {
     const [actuators, setActuators] = useState({
         fan: false,
-        heater: false,
-        buzzer: false,
+        purifier: false,
     });
-
-    useEffect(() => {
-        // TODO: Fetch initial actuator state on mount
-        // const fetchActuators = async () => { ... };
-        // fetchActuators();
-    }, []);
 
     /**
      * Toggle an actuator (optimistic update).
      * 
-     * @param {string} id - Actuator ID
+     * @param {string} id - Actuator ID (e.g., 'fan', 'purifier')
+     * @param {string} deviceId - The target device MAC address
      */
-    const toggleActuator = async (id) => {
-        // TODO: Implement optimistic update + API call
-        // const newState = !actuators[id];
-        // setActuators(prev => ({ ...prev, [id]: newState }));
-        // try {
-        //     await hardwareService.toggleActuator(id, newState);
-        // } catch (error) {
-        //     setActuators(prev => ({ ...prev, [id]: !newState })); // Revert
-        // }
+    const toggleActuator = async (id, deviceId) => {
+        // Optimistic update
+        const newState = !actuators[id];
+        setActuators(prev => ({ ...prev, [id]: newState }));
+
+        try {
+            await hardwareService.toggleActuator(id, newState, deviceId);
+        } catch (error) {
+            console.error('Failed to toggle actuator:', error);
+            // Revert on error
+            setActuators(prev => ({ ...prev, [id]: !newState }));
+        }
     };
 
     return { actuators, toggleActuator };

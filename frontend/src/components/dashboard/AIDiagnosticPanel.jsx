@@ -36,7 +36,7 @@ const AIDiagnosticPanel = ({ prediction }) => {
                 {/* Prediction Matrix */}
                 <div className="mb-4">
                     <div className="flex items-center justify-between mb-2 border-b border-vintage-coffee/20 pb-1">
-                        <span className="text-xs uppercase font-bold text-vintage-coffee/80">Forecast (T+15m)</span>
+                        <span className="text-xs uppercase font-bold text-vintage-coffee/80">Forecast (T+5m)</span>
                         <span className="text-[10px] font-mono text-vintage-coffee/50">CONFIDENCE: HIGH</span>
                     </div>
 

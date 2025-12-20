@@ -2,24 +2,15 @@ import React, { useState } from 'react';
 import LCDDisplay from '../components/dashboard/LCDDisplay';
 import ActuatorButton from '../components/dashboard/ActuatorButton';
 import VintagePanel from '../components/ui/VintagePanel';
-import ScreenOverlay from '../components/common/ScreenOverlay';
-import * as hardwareService from '../services/hardware.service';
+import useActuators from '../hooks/useActuators';
 import AIDiagnosticPanel from '../components/dashboard/AIDiagnosticPanel';
 
 const Dashboard = ({ sensors, prediction }) => {
-    // Component-level state for actuators only
-    const [actuators, setActuators] = useState({ fan: false, purifier: false });
+    const { actuators, toggleActuator } = useActuators();
 
-    const handleToggle = async (key) => {
-        const newState = !actuators[key];
-        setActuators(prev => ({ ...prev, [key]: newState }));
-
-        try {
-            await hardwareService.toggleActuator(key, newState, sensors.device_id);
-        } catch (error) {
-            console.error('Failed to toggle actuator:', error);
-            setActuators(prev => ({ ...prev, [key]: !newState }));
-        }
+    // Helper to keep the JSX clean
+    const handleToggle = (key) => {
+        toggleActuator(key, sensors.device_id);
     };
 
     return (
