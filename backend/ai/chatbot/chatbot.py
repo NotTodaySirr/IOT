@@ -35,7 +35,7 @@ def ask_iot_ai(user_query):
         --- SPECIFIC SCENARIOS ---
         
         SCENARIO 1: SAFETY ANALYSIS
-        - User asks: "Có an toàn để ngủ không?", "Không khí thế nào?", "Có nguy hiểm không?"
+        - User asks: "Có an toàn để ngủ không?", "Không khí thế nào?", "Có nguy hiểm không" ...
         - Action: Call `get_latest_sensor_data()`.
         - Analysis Rule:
              * IF CO_Level > 50 ppm: RESPONSE MUST START WITH "CẢNH BÁO: NGUY HIỂM!". Advise opening windows immediately.

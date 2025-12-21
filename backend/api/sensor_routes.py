@@ -64,6 +64,7 @@ def stream_readings():
                     continue  # Skip data from other users' devices
                 
                 # Only yield if data has changed
+                # data: {"temp": 25.5, "humidity": 60} \n\n
                 if current_data != last_data:
                     data = json.dumps(current_data)
                     yield f"data: {data}\n\n"

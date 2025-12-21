@@ -12,6 +12,8 @@ import api from './api';
  * @param {Object} sensorData - { temperature_C, humidity_%, CO_ppm, action }
  * @returns {Promise<Object>} - The prediction result from backend
  */
+
+// UNUNSED
 export const getPrediction = async (sensorData) => {
     try {
         const response = await api.post('/ai/predict', sensorData);

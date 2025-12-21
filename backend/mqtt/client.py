@@ -97,7 +97,7 @@ class MQTTHandler:
             CO_THRESHOLD = 50.0
             is_hazardous = co_level > CO_THRESHOLD
             
-            current_time = datetime.now()
+            current_time = datetime.now() # Timestamp for this reading
             
             # Prepare data for AI prediction
             current_action = 'normal'

@@ -63,4 +63,4 @@ def chatendpoint():
     # Call the AI function
     ai_response = ask_iot_ai(user_query)
             
-    return jsonify({"response": ai_response})
+    return jsonify({"response": ai_response})  
